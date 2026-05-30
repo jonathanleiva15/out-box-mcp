@@ -128,7 +128,7 @@ server.registerTool(
       "Solo lee la versión vigente: el back NO sirve versiones históricas por HTML. " +
       "Para una versión vieja usá `outbox_versions` (historial) + `outbox_rollback` (restaurar), o `outbox_export` para el estado actual machine-readable. Read-only.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página (ej. 'briefings/hoy')"),
+      slug: z.string().min(1).max(200).describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
       user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
@@ -393,7 +393,7 @@ server.registerTool(
       "`model` es OBLIGATORIO (atribución del modelo, B8). `visibility` default `private`. No es destructivo (no borra; versiona).\n\n" +
       "Args clave: slug, html, model (req). Opcionales: title, visibility, tags, summary, description, contentType, ttl, inheritFolderVisibility.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página (ej. 'briefings/hoy')"),
+      slug: z.string().min(1).max(200).describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
       html: z.string().min(1).describe("HTML crudo de la página (máx 5MB)"),
       model: MODEL,
       title: z.string().max(200).optional().describe("Título de la página"),
@@ -428,7 +428,7 @@ server.registerTool(
     inputSchema: {
       template: z.string().min(1).max(64).describe("Id del template del catálogo (GET /api/templates)"),
       data: z.record(z.unknown()).describe("Data estructurada que rellena el template (máx 64KB serializado)"),
-      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      slug: z.string().min(1).max(200).describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'reportes/2026/q3')"),
       model: MODEL,
       title: z.string().max(200).optional().describe("Título de la página"),
       visibility: VISIBILITY.optional().describe("private (default) / unlisted / public"),

@@ -45,6 +45,18 @@ Precedencia de la key:
 La key **nunca** se loguea. El server **no** escribe `~/.outboxrc` (eso lo hace el CLI). En sesiones
 remotas/headless el agente **no puede hacer login interactivo** → por eso la auth es por key.
 
+### Variables de entorno
+
+Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
+
+| Variable | Default | Para qué |
+|---|---|---|
+| `OUTBOX_API_KEY` | — | La API key `outbox_*` (recomendado). Si está, tiene precedencia sobre `~/.outboxrc`. |
+| `OUTBOX_USER` | (de `~/.outboxrc` o `/api/me`) | Username del owner, para defaultear el arg `user` de las tools sin pegarle a `/api/me`. |
+| `OUTBOX_RC` | `~/.outboxrc` | Path alternativo al archivo de credencial que escribe el CLI (útil en entornos con otro `HOME`). |
+| `OUTBOX_API_BASE` | `https://api.out-box.dev` | Base de la API (mutaciones, listados, gestión). |
+| `OUTBOX_SITE_BASE` | `https://out-box.dev` | Base del sitio público para leer el HTML servido (`SITE_BASE/<user>/<slug>`, sin `/u/`). |
+
 ## Tools disponibles (v0.1)
 
 | Tool | Qué hace | |
@@ -52,7 +64,7 @@ remotas/headless el agente **no puede hacer login interactivo** → por eso la a
 | `outbox_me` | Tu cuenta, tier, límites | read |
 | `outbox_list` | Listar páginas (tag, limit) | read |
 | `outbox_list_tree` | Árbol de la biblioteca / compartido conmigo | read |
-| `outbox_read` | Leer el HTML de una página (incl. versión histórica) | read |
+| `outbox_read` | Leer el HTML de una página (estado actual) | read |
 | `outbox_versions` | Historial de versiones | read |
 | `outbox_get_blocks` | Bloques de un daily | read |
 | `outbox_list_shares` | Share links activos | read |

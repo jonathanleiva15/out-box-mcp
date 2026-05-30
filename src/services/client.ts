@@ -13,8 +13,8 @@ export interface OutboxErrorBody {
   missingScope?: string;
   /** de requireOneOfScopes (auth.ts) */
   missingAnyOf?: string[];
-  /** de requireQuota (429) */
-  retryIn?: number;
+  /** de requireQuota (429) — segundos hasta poder reintentar (back: quota middleware → `retryAfter`) */
+  retryAfter?: number;
   [k: string]: unknown;
 }
 
@@ -117,7 +117,7 @@ export function formatError(e: unknown): string {
       case 413:
         return "Error 413: el contenido es demasiado grande.";
       case 429:
-        return `Error 429: límite de uso alcanzado${b?.retryIn ? `, reintentá en ~${b.retryIn}s` : ""}. NO reintentar automáticamente.`;
+        return `Error 429: límite de uso alcanzado${b?.retryAfter ? `, reintentá en ~${b.retryAfter}s` : ""}. NO reintentar automáticamente.`;
       default:
         return `Error ${e.status} en ${e.path}: ${b?.error ?? b?.message ?? "fallo de la API"}`;
     }
