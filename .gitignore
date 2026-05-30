@@ -1,0 +1,18 @@
+# deps & build
+node_modules/
+dist/
+
+# logs / temp
+*.log
+npm-debug.log*
+.DS_Store
+
+# secrets — NUNCA commitear credenciales
+.env
+.env.*
+.outboxrc
+
+# editores / IA
+.claude/
+.vscode/
+.idea/

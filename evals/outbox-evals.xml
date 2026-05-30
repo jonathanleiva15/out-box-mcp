@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Evals del Outbox MCP server (out-box.dev).
+
+  ESTADO: BORRADOR / placeholders. Las `<answer>` NO están finalizadas porque este
+  entorno NO tiene `OUTBOX_API_KEY` ni datos sembrados (cuenta con posts, folders,
+  keys, grants de prueba). Cada answer es un placeholder explícito del tipo
+  "[requiere key + datos sembrados]" describiendo QUÉ tool debería invocarse y QUÉ
+  forma tendría la respuesta — NO son respuestas inventadas.
+
+  CÓMO FINALIZAR/CORRER:
+    1. Exportar una OUTBOX_API_KEY real (Bearer `outbox_*`) con scopes suficientes,
+       o tener ~/.outboxrc del CLI (`outbox login`).
+    2. Sembrar datos mínimos: al menos 1 post (ej. 'briefings/hoy'), 1 daily, 1
+       folder con visibility, 1 agent key, 1 grant.
+    3. Levantar el server (npm run build && node dist/index.js) y correr cada
+       pregunta contra las tools; reemplazar cada placeholder por el resultado real
+       (o el criterio de aceptación concreto que se quiera evaluar).
+
+  Las preguntas están basadas en el catálogo real de tools (src/index.ts).
+-->
+<evaluation>
+  <qa_pair>
+    <question>¿Quién soy en Outbox y qué tier/límites tengo? ¿De dónde salió la credencial?</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_me` (GET /api/me) y reportar user, tier, tierLimits (publishPerHour/Day, storageGB, agentKeysMax, dailyDocsMax), scopes y authSource. El origen de auth (env vs rc) lo conoce el server por la precedencia OUTBOX_API_KEY &gt; ~/.outboxrc; NO debe imprimir la key.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Publicá este HTML como 'briefings/hoy' con visibility unlisted: &lt;h1&gt;Briefing&lt;/h1&gt;&lt;p&gt;Resumen del día&lt;/p&gt;</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_publish` (POST /publish) con slug='briefings/hoy', html=&lt;el HTML&gt;, visibility='unlisted' y `model` OBLIGATORIO (ej. el id del modelo en uso). La respuesta esperada: { url, slug, version, visibility:'unlisted', quotaRemaining }. Si omite `model`, el back responde 400 missing_model y el agente debe reintentar agregándolo.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Tengo data estructurada (no sé generar HTML). Publicá con el template 'report' los campos {title, body} en el slug 'reportes/q2'.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_publish_from_template` (POST /api/publish-from-template) con template='report', data={...}, slug='reportes/q2' y `model` OBLIGATORIO. La respuesta: { url, slug, version, visibility }. El HTML se renderiza server-side a partir del template + data.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Leé mi briefing de hoy y decime qué dice el último bloque.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_read` (slug='briefings/hoy') que lee el HTML del sitio público SITE_BASE/&lt;user&gt;/&lt;slug&gt; SIN /u/. Para dailies puede usar `outbox_get_blocks`. Si el post es privado, la key debe ser del owner o devuelve 404.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Sumá este bloque al daily de hoy sin pisar lo anterior: &lt;p&gt;Reunión 15h con cliente&lt;/p&gt;</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_append` (POST /api/u/:user/:slug/append) con el HTML del bloque. Append-only + versionado automático — es el flujo agents-first central (leer un HTML existente y sumarle contexto). Respuesta: { blockId, totalBlocks, version, url, date }.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Algo salió mal en 'briefings/hoy'. Mostrame las versiones y revertí a la versión 2.</question>
+    <answer>[requiere key + datos sembrados] Primero `outbox_versions` (lista el historial), luego `outbox_rollback` con to=2 (el número va en el BODY). Nota: rollback NO crea versión nueva, sobrescribe la actual (destructiveHint:true).</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Necesito delegarle a un agente que SOLO pueda publicar en la carpeta 'clientes/solera' por 30 días.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_gen_agent_key` (POST /api/keys/agent) con label, verbs=['publish'], folder='clientes/solera', days=30. Es write SENSIBLE: idealmente confirmar con el usuario. La respuesta trae `plaintext` UNA SOLA VEZ (guardarlo al instante) + keyId, scopes folder-scoped (publish:&lt;user&gt;:f/clientes/solera), expiresAt. La key nunca se loguea.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Compartí mi folder 'clientes/solera' con el usuario 'jimena' solo para lectura, que expire en 15 días.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_create_grant` (POST /api/grants) con recipientUser='jimena', resource='clientes/solera', resourceType='folder', permissions=['view'] (único soportado en v1), expiresInDays=15. El recipient lo verá como 'compartido conmigo'. Para auditar después: `outbox_list_grants`.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Mostrame todas mis carpetas con cuántos posts tiene cada una y su visibility.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_folders` (GET /api/folders) → { folders: [{ slug, count, visibility, declaredByKey? }] }. Con depth=2|3 devuelve el árbol anidado. Para cambiar la visibility default de una carpeta: `outbox_set_folder` (PUT /api/folders/:prefix, NO PATCH).</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Exportá el post 'reportes/q2' en formato estructurado para que otro agente lo procese.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_export` (GET /api/u/:user/:slug/export?format=json, B9) → { user, slug, title, tags, visibility, version, model, summary, description, contentType, contenido, ... }. `contenido` es el HTML crudo persistido. Solo exporta lo propio (cross-user = 403). Con format=html devuelve el HTML crudo.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Antes de publicar, ¿qué límites de tamaño y qué brand presets soporta Outbox? No quiero hardcodear nada.</question>
+    <answer>[requiere key + datos sembrados — aunque capabilities es público] Debe invocar `outbox_capabilities` (GET /api/capabilities, B15, público) → describe verbs, scopeFormat, tiers/límites, contentMeta (modelRequired:true, summaryRequired:true, límites de tamaño), uploads, brand presets (paper, minimal, corporate, dark, brutalist, editorial), publishLimits (htmlMaxBytes 5MB, templateDataMaxBytes 64KB) y features. Es el endpoint de auto-descubrimiento ideal para el MCP.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Cambiá mi estilo de marca por default a 'editorial'.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_set_style` (PUT /api/me/style, B3) con stylePreference='editorial' (uno de los 6 IDs del catálogo). Respuesta: { ok:true, stylePreference:'editorial' }. Requiere scope `template`; no re-aplica el HTML del template, solo cambia la preferencia.</answer>
+  </qa_pair>
+</evaluation>
