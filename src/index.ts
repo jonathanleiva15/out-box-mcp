@@ -263,6 +263,162 @@ server.registerTool(
   },
 );
 
+// ── Tools: comentarios / sugerencias ───────────────────────────────────────────
+// Capa de anotaciones sobre una página: el HTML del owner NUNCA se modifica por
+// comentar; SOLO aceptar una sugerencia (acción del owner) publica una versión
+// nueva atribuida. El agente lee el texto (outbox_read / outbox_export) y propone.
+server.registerTool(
+  "outbox_read_comments",
+  {
+    title: "Outbox: comentarios y sugerencias de una página",
+    description:
+      "Lista los comentarios y sugerencias de una página (capa de anotaciones; NO modifica el HTML). " +
+      "Cada item trae: id, kind (comment | suggestion), commenter, commenterType (human | agent), body, " +
+      "anchor {exact, prefix?, suffix?}, replacement? (solo suggestion), parentId? (reply, hilo 1 nivel), " +
+      "status (open | resolved | accepted | discarded), createdAt, resultingVersion?. Para ver sugerencias " +
+      "pendientes filtrá por status=open. Páginas privadas: key del owner, grant view/comment, o ?share. Read-only.",
+    inputSchema: {
+      slug: z
+        .string()
+        .min(1)
+        .max(200)
+        .describe("Slug/path de la página (acepta paths jerárquicos, ej 'briefings/hoy')"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ slug, user }) => {
+    try {
+      const u = await resolveUser(user);
+      return ok(
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments`),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_create_suggestion",
+  {
+    title: "Outbox: proponer un cambio (sugerencia)",
+    description:
+      "Propone un cambio de texto sobre una página publicada SIN editarla: una sugerencia anclada " +
+      "(anchor.exact = texto exacto y visible del HTML) + replacement (texto nuevo). El owner la acepta en el " +
+      "widget y recién ahí se aplica como versión nueva atribuida. Si NO sos el owner necesitás un grant 'comment' " +
+      "(o un ?share token). Flujo: 1) leé el contenido (outbox_read / outbox_export), 2) elegí el texto EXACTO a " +
+      "reemplazar, 3) sugerí. Si ese texto aparece varias veces, pasá prefix/suffix para desambiguar.",
+    inputSchema: {
+      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      exact: z
+        .string()
+        .min(1)
+        .max(2000)
+        .describe(
+          "Texto EXACTO y visible del documento a reemplazar; debe aparecer literal en el HTML servido. MAX 2000",
+        ),
+      replacement: z
+        .string()
+        .max(8000)
+        .describe("Texto nuevo; se inserta HTML-escapado (no podés meter markup). MAX 8000"),
+      prefix: z
+        .string()
+        .max(500)
+        .optional()
+        .describe("Contexto inmediatamente ANTES de `exact` (desambigua si `exact` se repite)"),
+      suffix: z.string().max(500).optional().describe("Contexto inmediatamente DESPUÉS de `exact`"),
+      body: z.string().max(4000).optional().describe("Nota: por qué proponés el cambio"),
+      user: z.string().min(1).max(64).optional().describe("Owner de la página (default: vos)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ slug, exact, replacement, prefix, suffix, body, user }) => {
+    try {
+      const u = await resolveUser(user);
+      const anchor = { exact, ...(prefix ? { prefix } : {}), ...(suffix ? { suffix } : {}) };
+      return ok(
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments`, {
+          method: "POST",
+          body: { kind: "suggestion", body, replacement, anchor },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_accept_suggestion",
+  {
+    title: "Outbox: aceptar una sugerencia (owner)",
+    description:
+      "Acepta una sugerencia: aplica el reemplazo y publica una versión nueva atribuida (quién propuso + quién " +
+      "aceptó). OWNER-ONLY: si no sos el owner de la página → 403. NO es destructivo (la versión anterior queda en " +
+      "el historial; revertí con outbox_rollback). Errores: 409 anchor_not_found (el texto ya cambió, descartá la " +
+      "sugerencia), 409 comment_not_open, 400 not_a_suggestion.",
+    inputSchema: {
+      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      commentId: z
+        .string()
+        .min(1)
+        .max(64)
+        .regex(/^[a-f0-9]+$/, "ID hex (de outbox_read_comments)")
+        .describe("ID de la sugerencia (comment.id)"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos). Aceptar es owner-only."),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ slug, commentId, user }) => {
+    try {
+      const u = await resolveUser(user);
+      return ok(
+        await client.req(
+          `/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments/${encodeURIComponent(commentId)}/accept`,
+          { method: "POST" },
+        ),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_discard_suggestion",
+  {
+    title: "Outbox: descartar una sugerencia o comentario (owner)",
+    description:
+      "Descarta una sugerencia o comentario (lo marca discarded; NO toca el HTML). OWNER-ONLY → 403 si no sos el " +
+      "owner. Útil para limpiar sugerencias obsoletas (ej. tras un 409 anchor_not_found al intentar aceptarlas).",
+    inputSchema: {
+      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      commentId: z
+        .string()
+        .min(1)
+        .max(64)
+        .regex(/^[a-f0-9]+$/, "ID hex (de outbox_read_comments)")
+        .describe("ID del comentario/sugerencia"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos). Owner-only."),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ slug, commentId, user }) => {
+    try {
+      const u = await resolveUser(user);
+      return ok(
+        await client.req(
+          `/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments/${encodeURIComponent(commentId)}/discard`,
+          { method: "POST" },
+        ),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
 server.registerTool(
   "outbox_rollback",
   {

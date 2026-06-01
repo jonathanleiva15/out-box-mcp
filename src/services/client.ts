@@ -112,6 +112,14 @@ export function formatError(e: unknown): string {
         return `Error 403: la key no tiene permiso${scope ? ` (falta scope: ${scope})` : ""}. Usá una key con el scope/folder necesario.`;
       case 404:
         return "Error 404: el recurso no existe, o es privado y la key no es del owner.";
+      case 409:
+        return `Error 409: conflicto (${
+          b?.error === "anchor_not_found"
+            ? "el texto anclado ya no existe en la página; releé el post y descartá la sugerencia si quedó obsoleta"
+            : b?.error === "comment_not_open"
+              ? "el comentario ya no está abierto"
+              : (b?.error ?? b?.message ?? "el estado del recurso cambió")
+        }).`;
       case 410:
         return "Error 410: el recurso expiró o fue consumido.";
       case 413:

@@ -73,6 +73,7 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_folders` | Listar carpetas (count + visibility, árbol opcional) | read |
 | `outbox_export` | Exportar un post (json estructurado / html crudo) | read |
 | `outbox_capabilities` | Capacidades del back (público, auto-descubrimiento) | read |
+| `outbox_read_comments` | Comentarios y sugerencias de una página (anotaciones) | read |
 | `outbox_publish` | Publicar HTML crudo (`model` obligatorio) | write |
 | `outbox_publish_from_template` | Publicar desde template + data JSON (`model` obligatorio) | write |
 | `outbox_append` | Agregar un bloque a un daily | write |
@@ -82,11 +83,20 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_set_style` | Cambiar brand preset (paper, minimal, …) | write |
 | `outbox_create_share` | Crear link público (con expiración) | write |
 | `outbox_create_grant` | Dar acceso de lectura a otro usuario | write |
+| `outbox_create_suggestion` | Proponer un cambio de texto (anchor + replacement) | comment |
+| `outbox_accept_suggestion` | Aceptar una sugerencia (publica versión nueva) | owner |
+| `outbox_discard_suggestion` | Descartar una sugerencia o comentario | owner |
 | `outbox_gen_agent_key` | Emitir agent key folder-scoped (delegación) | ⚠️ sensible |
 | `outbox_delete` | Eliminar una página | ⚠️ destructivo |
 
 > **`model` es obligatorio** en `outbox_publish` y `outbox_publish_from_template` (contrato B8 del
 > back: si falta, responde `400 missing_model`). Es el id del modelo que generó el contenido.
+
+> **Comentarios y sugerencias** (flujo agents-first): el agente lee el texto (`outbox_read` /
+> `outbox_export`), propone un cambio con `outbox_create_suggestion` (el texto exacto a reemplazar +
+> el `replacement`), y el **owner** lo acepta (`outbox_accept_suggestion` o desde el widget) → se aplica
+> como versión nueva atribuida. El HTML NUNCA se modifica por comentar. Un agente que NO es del owner
+> necesita un grant `comment` (o un `?share` token).
 
 ## Desarrollo
 
