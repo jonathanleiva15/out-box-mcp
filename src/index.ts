@@ -355,9 +355,13 @@ server.registerTool(
     title: "Outbox: aceptar una sugerencia (owner)",
     description:
       "Acepta una sugerencia: aplica el reemplazo y publica una versión nueva atribuida (quién propuso + quién " +
-      "aceptó). OWNER-ONLY: si no sos el owner de la página → 403. NO es destructivo (la versión anterior queda en " +
-      "el historial; revertí con outbox_rollback). Errores: 409 anchor_not_found (el texto ya cambió, descartá la " +
-      "sugerencia), 409 comment_not_open, 400 not_a_suggestion.",
+      "aceptó). Respuesta { ok, comment, version, noChange }. El ancla matchea por TEXTO VISIBLE (tag-aware): el back " +
+      "compara el texto del anchor contra el contenido visible del HTML aunque haya tags/entidades en el medio. " +
+      "NO-OP GUARD: si el reemplazo NO cambia el HTML resultante, devuelve { ok, comment, version, noChange: true } " +
+      "y NO crea una versión nueva (la marca como aceptada igual). OWNER-ONLY: si no sos el owner de la página → 403. " +
+      "NO es destructivo (la versión anterior queda en el historial; revertí con outbox_rollback). Errores: " +
+      "409 anchor_not_found (el texto ancla ya no está/cambió, descartá la sugerencia), 409 comment_not_open, " +
+      "400 not_a_suggestion.",
     inputSchema: {
       slug: z.string().min(1).max(200).describe("Slug/path de la página"),
       commentId: z

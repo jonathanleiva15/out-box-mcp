@@ -95,8 +95,14 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 > **Comentarios y sugerencias** (flujo agents-first): el agente lee el texto (`outbox_read` /
 > `outbox_export`), propone un cambio con `outbox_create_suggestion` (el texto exacto a reemplazar +
 > el `replacement`), y el **owner** lo acepta (`outbox_accept_suggestion` o desde el widget) → se aplica
-> como versión nueva atribuida. El HTML NUNCA se modifica por comentar. Un agente que NO es del owner
-> necesita un grant `comment` (o un `?share` token).
+> como versión nueva atribuida. El ancla matchea por **texto visible** (tag-aware): el back compara el
+> texto del anchor contra el contenido visible aunque haya tags/entidades en el medio. El HTML NUNCA se
+> modifica por comentar. Un agente que NO es del owner necesita un grant `comment` (o un `?share` token).
+
+> **`outbox_accept_suggestion` no siempre publica `vN+1`.** La respuesta es `{ ok, comment, version, noChange }`.
+> Si el reemplazo **no cambia** el HTML resultante, el back aplica un **no-op guard**: devuelve
+> `{ ..., noChange: true }`, marca la sugerencia como aceptada y **NO crea una versión nueva**. Solo cuando el
+> HTML efectivamente cambia se publica `vN+1`.
 
 ## Desarrollo
 
