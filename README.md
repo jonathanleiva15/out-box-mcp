@@ -1,4 +1,4 @@
-# @outbox/mcp — Outbox MCP server
+# @out-box/mcp — Outbox MCP server
 
 Server MCP oficial de **[Outbox](https://out-box.dev)** (out-box.dev), la biblioteca privada
 **agents-first** para publicar HTMLs. Expone Outbox como **herramientas nativas** para cualquier
@@ -23,7 +23,7 @@ Agregá esto a tu config de MCP (`claude_desktop_config.json`):
   "mcpServers": {
     "outbox": {
       "command": "npx",
-      "args": ["-y", "@outbox/mcp"],
+      "args": ["-y", "@out-box/mcp"],
       "env": {
         "OUTBOX_API_KEY": "outbox_xxxxxxxxxxxxxxxx"
       }

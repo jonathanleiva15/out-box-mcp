@@ -1,5 +1,5 @@
 {
-  "name": "@outbox/mcp",
+  "name": "@out-box/mcp",
   "version": "0.1.0",
   "description": "MCP server oficial de Outbox (out-box.dev) — publicar, leer y gestionar HTMLs en tu biblioteca agents-first desde cualquier cliente MCP.",
   "type": "module",
@@ -28,7 +28,9 @@
     "out-box.dev",
     "agents"
   ],
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "author": "Jonathan Leiva <jonathanleiva15@gmail.com> (https://out-box.dev)",
+  "homepage": "https://out-box.dev",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.1",
     "zod": "^3.23.8"
