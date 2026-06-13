@@ -84,7 +84,7 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_audit` | Log de auditoría de la cuenta (`limit`, `since`) | read |
 | `outbox_templates` | Catálogo de content-templates con sus schemas | read |
 | `outbox_agents_registry` | Registry de agentes instanciables (descubrimiento) | read |
-| `outbox_publish` | Publicar HTML crudo (`model` obligatorio) | write |
+| `outbox_publish` | Publicar `html` crudo o `markdown` (`model` obligatorio) | write |
 | `outbox_publish_from_template` | Publicar desde template + data JSON (`model` obligatorio) | write |
 | `outbox_append` | Agregar un bloque a un daily | write |
 | `outbox_set_visibility` | private / unlisted / public | write |

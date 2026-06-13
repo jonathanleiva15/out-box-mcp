@@ -656,14 +656,16 @@ const MODEL = z
 server.registerTool(
   "outbox_publish",
   {
-    title: "Outbox: publicar HTML crudo",
+    title: "Outbox: publicar HTML o Markdown",
     description:
-      "Publica una página con HTML crudo (POST /publish). Crea o sobrescribe el `slug` (versionado automático: cada publish es una versión nueva). " +
+      "Publica una página con `html` crudo O `markdown` (POST /publish). Crea o sobrescribe el `slug` (versionado automático: cada publish es una versión nueva). " +
+      "Mandá UNO de los dos: `html` (se sirve tal cual) o `markdown` (el back lo renderiza a HTML seguro y lo envuelve en tu template/marca; guarda el .md fuente para round-trip). Mandar ambos → 400 conflicting_content; ninguno → 400 missing_content. " +
       "`model` es OBLIGATORIO (atribución del modelo, B8). `visibility` default `private`. No es destructivo (no borra; versiona).\n\n" +
-      "Args clave: slug, html, model (req). Opcionales: title, visibility, tags, summary, description, contentType, ttl, inheritFolderVisibility.",
+      "Args clave: slug, model (req) + html O markdown. Opcionales: title, visibility, tags, summary, description, contentType, ttl, inheritFolderVisibility.",
     inputSchema: {
       slug: z.string().min(1).max(200).describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
-      html: z.string().min(1).describe("HTML crudo de la página (máx 5MB)"),
+      html: z.string().min(1).optional().describe("HTML crudo de la página (se sirve tal cual; máx 5MB). Excluyente con `markdown`."),
+      markdown: z.string().min(1).optional().describe("Fuente Markdown (camino agents-first): el back la renderiza a HTML seguro (escape + allowlist, sin raw-HTML ejecutable) y la envuelve en tu template o el shell de marca. Guarda el .md fuente. Excluyente con `html`."),
       model: MODEL,
       title: z.string().max(200).optional().describe("Título de la página"),
       visibility: VISIBILITY.optional().describe("private (default) / unlisted / public"),
