@@ -6,7 +6,7 @@
 
 - **0.1.0** — consistente en `package.json` (`"version": "0.1.0"`) y `src/constants.ts`
   (`SERVER_VERSION = "0.1.0"`).
-- 27 tools registradas (13 read, 10 write, 3 comment/owner, 1 sensible, 1 destructivo).
+- 40 tools registradas (21 read, 11 write, 3 comment/owner, 1 sensible, 4 destructivo).
 
 ## Estado de publicación
 

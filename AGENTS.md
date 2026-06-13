@@ -29,21 +29,25 @@ evals/
 dist/                output de `tsc` (compilado, no se edita a mano)
 ```
 
-## Las 27 tools
+## Las 40 tools
 
 Agrupadas por categoría (ver README.md para la tabla completa con args):
 
-- **read (13)** — `outbox_me`, `outbox_list`, `outbox_list_tree`, `outbox_read`, `outbox_versions`,
+- **read (21)** — `outbox_me`, `outbox_list`, `outbox_list_tree`, `outbox_read`, `outbox_versions`,
   `outbox_get_blocks`, `outbox_list_shares`, `outbox_list_keys`, `outbox_list_grants`,
-  `outbox_folders`, `outbox_export`, `outbox_capabilities`, `outbox_read_comments`.
-- **write (10)** — `outbox_publish`, `outbox_publish_from_template`, `outbox_append`,
-  `outbox_rollback`, `outbox_set_visibility`, `outbox_set_folder`, `outbox_set_style`,
-  `outbox_create_share`, `outbox_create_grant`.
+  `outbox_folders`, `outbox_export`, `outbox_capabilities`, `outbox_read_comments`, `outbox_recent`,
+  `outbox_search`, `outbox_diff`, `outbox_access`, `outbox_audit`, `outbox_templates`,
+  `outbox_agents_registry`, `outbox_export_library`.
+- **write (11)** — `outbox_publish`, `outbox_publish_from_template`, `outbox_append`,
+  `outbox_set_visibility`, `outbox_set_folder`, `outbox_set_style`, `outbox_create_share`,
+  `outbox_create_grant`, `outbox_create_comment`, `outbox_upload`, `outbox_instantiate_agent`.
 - **comment / owner (3)** — `outbox_create_suggestion` (comment), `outbox_accept_suggestion` (owner),
   `outbox_discard_suggestion` (owner). Flujo agents-first: el agente propone un cambio de texto
   (anchor + replacement) y el owner lo acepta → versión nueva atribuida.
 - **⚠️ sensible (1)** — `outbox_gen_agent_key`: emite una agent key folder-scoped (delegación).
-- **⚠️ destructivo (1)** — `outbox_delete`: elimina una página.
+- **⚠️ destructivo (4)** — `outbox_rollback` (revertir a una versión), `outbox_squash` (compactar el
+  historial de versiones), `outbox_delete` (eliminar una página), `outbox_delete_folder` (eliminar
+  una carpeta).
 
 ## Autenticación
 

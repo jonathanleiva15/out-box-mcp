@@ -517,6 +517,42 @@ server.registerTool(
 );
 
 server.registerTool(
+  "outbox_squash",
+  {
+    title: "Outbox: compactar el historial de versiones",
+    description:
+      "Compacta (squash) el historial de versiones de una página en una sola versión consolidada " +
+      "(POST /api/u/:user/:slug/squash). El contenido ACTUAL se conserva; lo que se elimina es el historial " +
+      "intermedio. Con `keepOriginal=true` se preserva además la primera versión (v1) como punto de anclaje; " +
+      "por default (false) el historial queda compactado en una sola entrada. DESTRUCTIVO e irreversible: las " +
+      "versiones intermedias se pierden y ya no podrás hacer `outbox_rollback` a ellas — pedí confirmación al " +
+      "usuario antes de usarla. Útil para limpiar dailies con cientos de bloques o páginas con mucho versionado.",
+    inputSchema: {
+      slug: z.string().min(1).max(200).describe("Slug/path de la página a compactar"),
+      keepOriginal: z
+        .boolean()
+        .optional()
+        .describe("true = preserva la primera versión (v1) además de la actual; default false = compacta todo el historial"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ slug, keepOriginal, user }) => {
+    try {
+      const u = await resolveUser(user);
+      return ok(
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/squash`, {
+          method: "POST",
+          body: { keepOriginal },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
   "outbox_set_visibility",
   {
     title: "Outbox: cambiar visibility de una página",
@@ -871,6 +907,351 @@ server.registerTool(
   async ({ stylePreference }) => {
     try {
       return ok(await client.req("/api/me/style", { method: "PUT", body: { stylePreference } }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_recent",
+  {
+    title: "Outbox: actividad reciente",
+    description:
+      "Devuelve los cambios recientes de tu biblioteca (GET /api/u/:user/recent): el primitivo de 'qué cambió'. " +
+      "Filtros opcionales: `since` (ISO-8601 o epoch ms, según contrato del back), `prefix` (acota a una carpeta, " +
+      "ej. 'clientes/solera') y `slug` (una página puntual). Ideal para que un agente detecte qué se modificó desde la " +
+      "última vez antes de re-leer o re-publicar. Read-only.",
+    inputSchema: {
+      since: z
+        .string()
+        .min(1)
+        .max(40)
+        .optional()
+        .describe("Cota inferior temporal (ISO-8601, ej. '2026-06-01T00:00:00Z', o epoch ms). Solo cambios posteriores"),
+      prefix: z.string().min(1).max(200).optional().describe("Acota a una carpeta (ej. 'clientes/solera')"),
+      slug: z.string().min(1).max(200).optional().describe("Acota a una página puntual (slug/path)"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ since, prefix, slug, user }) => {
+    try {
+      const u = await resolveUser(user);
+      return ok(
+        await client.req(`/api/u/${encodeURIComponent(u)}/recent`, {
+          query: { since, prefix, slug },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_search",
+  {
+    title: "Outbox: buscar en mi biblioteca",
+    description:
+      "Búsqueda full-text / retrieval sobre tu propia biblioteca (GET /api/u/:user/search?q=). " +
+      "Devuelve las páginas que matchean `q` (título, contenido, tags según el back). " +
+      "Es más potente que `outbox_list` (que solo filtra por tag): usá esto cuando el agente necesita ENCONTRAR contenido " +
+      "por texto antes de leer/actualizar. Read-only.",
+    inputSchema: {
+      q: z.string().min(1).max(200).describe("Texto a buscar (full-text sobre tu biblioteca)"),
+      limit: z.number().int().min(1).max(200).default(20).describe("Máximo de resultados"),
+      prefix: z.string().min(1).max(200).optional().describe("Acota la búsqueda a una carpeta (ej. 'clientes/solera')"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ q, limit, prefix, user }) => {
+    try {
+      const u = await resolveUser(user);
+      return ok(
+        await client.req(`/api/u/${encodeURIComponent(u)}/search`, {
+          query: { q, limit, prefix },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_diff",
+  {
+    title: "Outbox: diff entre versiones",
+    description:
+      "Devuelve el diff de una página entre dos versiones (GET /api/u/:user/:slug/diff?from=&to=). " +
+      "`from`/`to` son números de versión (de `outbox_versions`). Útil para que el agente entienda QUÉ cambió entre " +
+      "dos puntos del historial antes de actuar (revisar, revertir, comentar). Read-only.",
+    inputSchema: {
+      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      from: z.number().int().min(1).describe("Versión base (la más vieja)"),
+      to: z.number().int().min(1).describe("Versión destino (la más nueva)"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ slug, from, to, user }) => {
+    try {
+      const u = await resolveUser(user);
+      return ok(
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/diff`, {
+          query: { from, to },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_access",
+  {
+    title: "Outbox: quién tiene acceso a una página",
+    description:
+      "Devuelve quién puede acceder a una página y cómo (GET /api/u/:user/:slug/access): visibility efectiva, " +
+      "grants user-to-user, share tokens y keys con scope sobre ese recurso. Útil para auditar el blast radius de un post " +
+      "antes de cambiar su visibility o compartirlo. Read-only.",
+    inputSchema: {
+      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ slug, user }) => {
+    try {
+      const u = await resolveUser(user);
+      return ok(
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/access`),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_audit",
+  {
+    title: "Outbox: log de auditoría",
+    description:
+      "Devuelve el log de auditoría de tu cuenta (GET /api/audit): publishes, deletes, rollbacks, emisión de keys, " +
+      "grants, etc. — quién hizo qué y cuándo. Filtros opcionales: `limit` y `since`. Ideal para revisar la actividad de " +
+      "agentes delegados. Read-only.",
+    inputSchema: {
+      limit: z.number().int().min(1).max(200).default(50).describe("Máximo de eventos"),
+      since: z
+        .string()
+        .min(1)
+        .max(40)
+        .optional()
+        .describe("Cota inferior temporal (ISO-8601 o epoch ms). Solo eventos posteriores"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ limit, since }) => {
+    try {
+      return ok(await client.req("/api/audit", { query: { limit, since } }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_templates",
+  {
+    title: "Outbox: catálogo de templates",
+    description:
+      "Lista los content-templates disponibles con sus schemas (GET /api/templates). " +
+      "Cada template trae su `id`, los campos requeridos/opcionales y el shape del `data` esperado. " +
+      "Usalo para AUTO-DESCUBRIR qué templates podés pasarle a `outbox_publish_from_template` y con qué estructura de " +
+      "`data` — no hardcodees los campos. Read-only.",
+    inputSchema: {},
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async () => {
+    try {
+      return ok(await client.req("/api/templates"));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_agents_registry",
+  {
+    title: "Outbox: registry de agentes",
+    description:
+      "Lista los agentes disponibles en el registry de Outbox (GET /api/agents/registry): plantillas de agente " +
+      "instanciables (id, nombre, descripción, capabilities, scopes/verbs que requieren). Es el paso de descubrimiento " +
+      "antes de `outbox_instantiate_agent`. Estratégico: deja que un agente vea qué otros agentes puede levantar. Read-only.",
+    inputSchema: {},
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async () => {
+    try {
+      return ok(await client.req("/api/agents/registry"));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_instantiate_agent",
+  {
+    title: "Outbox: instanciar un agente del registry",
+    description:
+      "Instancia un agente del registry (POST /api/agents/instantiate) a partir de su `agentId` (de `outbox_agents_registry`). " +
+      "Crea la instancia con su agent key folder-scoped y la config asociada. Write SENSIBLE: puede emitir credenciales y " +
+      "acotar acceso a una carpeta — confirmá con el usuario antes de instanciar. La respuesta puede traer un secreto UNA " +
+      "SOLA VEZ (guardalo al instante).",
+    inputSchema: {
+      agentId: z.string().min(1).max(64).describe("Id del agente del registry (de outbox_agents_registry)"),
+      label: z.string().min(1).max(60).optional().describe("Etiqueta de la instancia (1-60 chars)"),
+      folder: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe("Folder al que se acota el agente (blast radius reducido, ej. 'clientes/solera')"),
+      config: z
+        .record(z.unknown())
+        .optional()
+        .describe("Config estructurada de la instancia (campos que pida el agente del registry)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ agentId, label, folder, config }) => {
+    try {
+      return ok(
+        await client.req("/api/agents/instantiate", {
+          method: "POST",
+          body: { agentId, label, folder, config },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_upload",
+  {
+    title: "Outbox: subir una imagen (content-addressed)",
+    description:
+      "Sube una imagen (POST /api/uploads) y devuelve una URL content-addressed (hash del contenido) para referenciarla " +
+      "desde el HTML de tus páginas. La imagen se pasa como `data` en base64 + el `contentType` (ej. 'image/png'). " +
+      "Útil para que el agente incruste imágenes propias sin depender de hosts externos. Requiere scope `upload`. No es destructivo.",
+    inputSchema: {
+      data: z.string().min(1).describe("Bytes de la imagen en base64 (sin el prefijo data: URI)"),
+      contentType: z
+        .string()
+        .min(1)
+        .max(60)
+        .regex(/^image\//, "Debe ser un MIME de imagen (image/png, image/jpeg, image/webp, image/gif, image/svg+xml)")
+        .describe("MIME de la imagen (ej. 'image/png', 'image/jpeg', 'image/webp')"),
+      filename: z.string().min(1).max(200).optional().describe("Nombre de archivo sugerido (opcional, informativo)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ data, contentType, filename }) => {
+    try {
+      return ok(
+        await client.req("/api/uploads", {
+          method: "POST",
+          body: { data, contentType, filename },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_delete_folder",
+  {
+    title: "Outbox: eliminar una carpeta",
+    description:
+      "Elimina la metadata de una carpeta (DELETE /api/folders/:prefix). DESTRUCTIVO — según el contrato del back puede " +
+      "arrastrar las páginas que contiene; pedí confirmación al usuario antes de usarla. Complementa `outbox_folders` " +
+      "(listar) y `outbox_set_folder` (crear/actualizar): cierra el CRUD de carpetas.",
+    inputSchema: {
+      prefix: z.string().min(1).max(200).describe("Path de la carpeta a eliminar (ej. 'clientes/solera')"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ prefix }) => {
+    try {
+      return ok(
+        await client.req(`/api/folders/${encodeURIComponent(prefix)}`, { method: "DELETE" }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_export_library",
+  {
+    title: "Outbox: exportar TODA la biblioteca (backup)",
+    description:
+      "Exporta TODA tu biblioteca como JSON (list + export de cada post) para backup / portabilidad. " +
+      "Hoy `outbox_export` solo exporta 1 post; esta tool lista todos (GET /api/list) y exporta cada uno " +
+      "(GET /api/u/:user/:slug/export?format=json), devolviendo { user, count, exportedAt, posts: [...] }. " +
+      "Filtros opcionales: `prefix` (solo una carpeta) y `limit` (tope de posts, protege contexto/quota). " +
+      "Si un export individual falla, el post queda con { slug, error } y la exportación continúa (best-effort). Read-only.",
+    inputSchema: {
+      prefix: z.string().min(1).max(200).optional().describe("Acota el backup a una carpeta (ej. 'clientes/solera')"),
+      limit: z.number().int().min(1).max(500).default(100).describe("Tope de posts a exportar (protege contexto y quota)"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos). Debe ser vos — cross-user da 403"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ prefix, limit, user }) => {
+    try {
+      const u = await resolveUser(user);
+      const listed = await client.req<{ posts?: { slug?: string }[]; items?: { slug?: string }[] }>(
+        "/api/list",
+        { query: { limit, prefix } },
+      );
+      const rows = listed.posts ?? listed.items ?? [];
+      const slugs = rows
+        .map((r) => (typeof r.slug === "string" ? r.slug : undefined))
+        .filter((s): s is string => typeof s === "string")
+        .slice(0, limit);
+
+      const posts: unknown[] = [];
+      for (const slug of slugs) {
+        try {
+          const exported = await client.req<unknown>(
+            `/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/export`,
+            { query: { format: "json" } },
+          );
+          posts.push(exported);
+        } catch (err) {
+          posts.push({ slug, error: formatError(err) });
+        }
+      }
+
+      return ok({
+        user: u,
+        ...(prefix ? { prefix } : {}),
+        count: posts.length,
+        exportedAt: new Date().toISOString(),
+        posts,
+      });
     } catch (e) {
       return fail(e);
     }

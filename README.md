@@ -78,6 +78,7 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_publish_from_template` | Publicar desde template + data JSON (`model` obligatorio) | write |
 | `outbox_append` | Agregar un bloque a un daily | write |
 | `outbox_rollback` | Revertir a una versión | write |
+| `outbox_squash` | Compactar el historial de versiones | ⚠️ destructivo |
 | `outbox_set_visibility` | private / unlisted / public | write |
 | `outbox_set_folder` | Setear visibility de una carpeta (PUT) | write |
 | `outbox_set_style` | Cambiar brand preset (paper, minimal, …) | write |
