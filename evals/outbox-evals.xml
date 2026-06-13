@@ -51,6 +51,11 @@
   </qa_pair>
 
   <qa_pair>
+    <question>El daily 'daily/2026-05-29' tiene cientos de versiones y quiero limpiar el historial dejando solo el contenido actual.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_squash` (POST /api/u/:user/:slug/squash) con slug='daily/2026-05-29'. Compacta el historial de versiones en una sola entrada conservando el contenido ACTUAL; con keepOriginal=true preserva además la v1 como anclaje (default false = compacta todo). DESTRUCTIVO e irreversible (destructiveHint:true): las versiones intermedias se pierden y ya no se puede `outbox_rollback` a ellas — el agente debe pedir confirmación al usuario antes. Respuesta esperada: { ok, slug, version, squashedVersions }.</answer>
+  </qa_pair>
+
+  <qa_pair>
     <question>Necesito delegarle a un agente que SOLO pueda publicar en la carpeta 'clientes/solera' por 30 días.</question>
     <answer>[requiere key + datos sembrados] Debe invocar `outbox_gen_agent_key` (POST /api/keys/agent) con label, verbs=['publish'], folder='clientes/solera', days=30. Es write SENSIBLE: idealmente confirmar con el usuario. La respuesta trae `plaintext` UNA SOLA VEZ (guardarlo al instante) + keyId, scopes folder-scoped (publish:&lt;user&gt;:f/clientes/solera), expiresAt. La key nunca se loguea.</answer>
   </qa_pair>
@@ -76,7 +81,72 @@
   </qa_pair>
 
   <qa_pair>
+    <question>Mi agente leyó el comentario de Jimena en 'briefings/hoy'. Respondele en el mismo hilo: "Listo, lo ajusto para la tarde."</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_create_comment` (POST /api/u/:user/:slug/comments) con slug='briefings/hoy', body='Listo, lo ajusto para la tarde.' (TEXTO PLANO, no HTML) y parentId=&lt;el comment.id del comentario de Jimena, obtenido de outbox_read_comments&gt;. El kind sigue siendo 'comment' (es una respuesta, hilo de 1 nivel). NO modifica el HTML ni publica una versión: es la capa de anotaciones ('charlar con mi agente'). Si no es owner, requiere grant 'comment' o ?share.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Dejá un comentario top-level en 'reportes/q2' anclado al texto exacto "ingresos netos": "Confirmar este número con Finanzas."</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_create_comment` (POST /api/u/:user/:slug/comments) con slug='reportes/q2', body='Confirmar este número con Finanzas.' y anchor={ exact:'ingresos netos' } (sin parentId → comentario top-level). El body va como TEXTO PLANO. Si 'ingresos netos' apareciera varias veces, desambiguar con prefix/suffix. NO toca el HTML ni versiona — para proponer un cambio aplicable se usa `outbox_create_suggestion` en su lugar.</answer>
+  </qa_pair>
+
+  <qa_pair>
     <question>Cambiá mi estilo de marca por default a 'editorial'.</question>
     <answer>[requiere key + datos sembrados] Debe invocar `outbox_set_style` (PUT /api/me/style, B3) con stylePreference='editorial' (uno de los 6 IDs del catálogo). Respuesta: { ok:true, stylePreference:'editorial' }. Requiere scope `template`; no re-aplica el HTML del template, solo cambia la preferencia.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>¿Qué cambió en mi carpeta 'clientes/solera' desde ayer? No quiero re-leer todo.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_recent` (GET /api/u/:user/recent) con prefix='clientes/solera' y since=&lt;timestamp de ayer, ISO-8601 o epoch ms&gt;. Es el primitivo de 'qué cambió': devuelve los posts modificados/creados desde `since` acotados al prefix. Filtros opcionales: since, prefix, slug. Read-only — ideal para que el agente detecte deltas antes de re-leer o re-publicar.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Buscá en mi biblioteca todo lo que mencione "migración SAP" y dame los links.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_search` (GET /api/u/:user/search?q=) con q='migración SAP'. Devuelve las páginas que matchean por full-text (título/contenido/tags según el back), más potente que `outbox_list` que solo filtra por tag. Opcionales: limit (default 20), prefix para acotar a una carpeta. Read-only. Solo busca sobre la propia biblioteca.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Mostrame qué cambió en 'briefings/hoy' entre la versión 2 y la 5.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_diff` (GET /api/u/:user/:slug/diff?from=&amp;to=) con slug='briefings/hoy', from=2, to=5 (números de versión de `outbox_versions`). Devuelve el diff entre ambas versiones del historial. Read-only — el agente lo usa para entender qué cambió antes de revertir/comentar.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>¿Quién puede ver el post 'reportes/q2' ahora mismo? Quiero auditarlo antes de hacerlo público.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_access` (GET /api/u/:user/:slug/access) con slug='reportes/q2'. Devuelve la visibility efectiva + grants user-to-user + share tokens + keys con scope sobre ese recurso (el blast radius). Read-only — auditoría previa a cambiar visibility o compartir.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Mostrame los últimos 20 eventos de auditoría de mi cuenta: quiero ver qué hicieron mis agentes delegados.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_audit` (GET /api/audit) con limit=20. Devuelve el log de auditoría (publishes, deletes, rollbacks, emisión de keys, grants) — quién hizo qué y cuándo. Filtros opcionales: limit, since (ISO-8601 o epoch ms). Read-only.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>¿Qué templates puedo usar para publish-from-template y qué campos requiere cada uno?</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_templates` (GET /api/templates) para auto-descubrir el catálogo: cada template trae id + schema (campos requeridos/opcionales y shape del `data`). Es el paso previo a `outbox_publish_from_template` — el agente NO debe hardcodear los campos, los descubre acá. Read-only.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>¿Qué agentes puedo instanciar desde Outbox? Mostrame el registry.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_agents_registry` (GET /api/agents/registry): lista las plantillas de agente instanciables (id, nombre, descripción, capabilities, scopes/verbs requeridos). Es el descubrimiento previo a `outbox_instantiate_agent`. Read-only.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Instanciá el agente 'cm-publisher' del registry acotado a la carpeta 'cm', con label 'cm-bot'.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_instantiate_agent` (POST /api/agents/instantiate) con agentId='cm-publisher', label='cm-bot', folder='cm'. Write SENSIBLE: puede emitir una agent key folder-scoped — idealmente confirmar con el usuario. La respuesta puede traer un secreto UNA SOLA VEZ (guardarlo al instante) + la config de la instancia.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Tengo esta imagen en base64, subila a Outbox y dame la URL para incrustarla en mi HTML.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_upload` (POST /api/uploads) con data=&lt;base64 sin prefijo data:&gt;, contentType='image/png' (o el MIME real). Devuelve una URL content-addressed (hash del contenido) que el agente referencia desde el HTML. Requiere scope `upload`. No es destructivo (mismo contenido = misma URL, idempotentHint:true).</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Borrá la carpeta 'clientes/solera' de mi biblioteca.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_delete_folder` (DELETE /api/folders/:prefix) con prefix='clientes/solera'. DESTRUCTIVO — según el contrato del back puede arrastrar las páginas contenidas; el agente debe pedir confirmación al usuario antes. Cierra el CRUD de carpetas junto a `outbox_folders` (listar) y `outbox_set_folder` (crear/actualizar).</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Hacé un backup completo de toda mi biblioteca en JSON para portabilidad.</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_export_library`: lista todos los posts (GET /api/list) y exporta cada uno (GET /api/u/:user/:slug/export?format=json), devolviendo { user, count, exportedAt, posts:[...] }. Hoy `outbox_export` solo exporta 1 post — esta tool exporta TODA la biblioteca. Opcionales: prefix (solo una carpeta), limit (tope, protege contexto/quota). Best-effort: si un export individual falla, ese post queda { slug, error } y la exportación continúa. Read-only.</answer>
   </qa_pair>
 </evaluation>
