@@ -57,7 +57,9 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `OUTBOX_API_BASE` | `https://api.out-box.dev` | Base de la API (mutaciones, listados, gestión). |
 | `OUTBOX_SITE_BASE` | `https://out-box.dev` | Base del sitio público para leer el HTML servido (`SITE_BASE/<user>/<slug>`, sin `/u/`). |
 
-## Tools disponibles (v0.1)
+## Tools disponibles (40)
+
+40 tools en total: **21 read**, **11 write**, **3 comment/owner**, **1 sensible**, **4 destructivo**.
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -72,23 +74,35 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_list_grants` | Grants user-to-user (dados / recibidos) | read |
 | `outbox_folders` | Listar carpetas (count + visibility, árbol opcional) | read |
 | `outbox_export` | Exportar un post (json estructurado / html crudo) | read |
+| `outbox_export_library` | Exportar TODA la biblioteca como JSON (backup / portabilidad) | read |
 | `outbox_capabilities` | Capacidades del back (público, auto-descubrimiento) | read |
 | `outbox_read_comments` | Comentarios y sugerencias de una página (anotaciones) | read |
+| `outbox_recent` | Cambios recientes de la biblioteca (`since`, `prefix`, `slug`) | read |
+| `outbox_search` | Búsqueda full-text sobre tu biblioteca (`q`) | read |
+| `outbox_diff` | Diff de una página entre dos versiones (`from`/`to`) | read |
+| `outbox_access` | Quién puede acceder a una página y cómo (blast radius) | read |
+| `outbox_audit` | Log de auditoría de la cuenta (`limit`, `since`) | read |
+| `outbox_templates` | Catálogo de content-templates con sus schemas | read |
+| `outbox_agents_registry` | Registry de agentes instanciables (descubrimiento) | read |
 | `outbox_publish` | Publicar HTML crudo (`model` obligatorio) | write |
 | `outbox_publish_from_template` | Publicar desde template + data JSON (`model` obligatorio) | write |
 | `outbox_append` | Agregar un bloque a un daily | write |
-| `outbox_rollback` | Revertir a una versión | write |
-| `outbox_squash` | Compactar el historial de versiones | ⚠️ destructivo |
 | `outbox_set_visibility` | private / unlisted / public | write |
 | `outbox_set_folder` | Setear visibility de una carpeta (PUT) | write |
 | `outbox_set_style` | Cambiar brand preset (paper, minimal, …) | write |
 | `outbox_create_share` | Crear link público (con expiración) | write |
 | `outbox_create_grant` | Dar acceso de lectura a otro usuario | write |
+| `outbox_create_comment` | Comentar / responder en un hilo (anotaciones, no edita HTML) | write |
+| `outbox_upload` | Subir una imagen → URL content-addressed (scope `upload`) | write |
+| `outbox_instantiate_agent` | Instanciar un agente del registry (emite agent key) | write |
 | `outbox_create_suggestion` | Proponer un cambio de texto (anchor + replacement) | comment |
 | `outbox_accept_suggestion` | Aceptar una sugerencia (publica versión nueva) | owner |
 | `outbox_discard_suggestion` | Descartar una sugerencia o comentario | owner |
 | `outbox_gen_agent_key` | Emitir agent key folder-scoped (delegación) | ⚠️ sensible |
+| `outbox_rollback` | Revertir a una versión | ⚠️ destructivo |
+| `outbox_squash` | Compactar el historial de versiones | ⚠️ destructivo |
 | `outbox_delete` | Eliminar una página | ⚠️ destructivo |
+| `outbox_delete_folder` | Eliminar la metadata de una carpeta | ⚠️ destructivo |
 
 > **`model` es obligatorio** en `outbox_publish` y `outbox_publish_from_template` (contrato B8 del
 > back: si falta, responde `400 missing_model`). Es el id del modelo que generó el contenido.
