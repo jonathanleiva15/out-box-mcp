@@ -76,6 +76,16 @@
   </qa_pair>
 
   <qa_pair>
+    <question>Mi agente leyó el comentario de Jimena en 'briefings/hoy'. Respondele en el mismo hilo: "Listo, lo ajusto para la tarde."</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_create_comment` (POST /api/u/:user/:slug/comments) con slug='briefings/hoy', body='Listo, lo ajusto para la tarde.' (TEXTO PLANO, no HTML) y parentId=&lt;el comment.id del comentario de Jimena, obtenido de outbox_read_comments&gt;. El kind sigue siendo 'comment' (es una respuesta, hilo de 1 nivel). NO modifica el HTML ni publica una versión: es la capa de anotaciones ('charlar con mi agente'). Si no es owner, requiere grant 'comment' o ?share.</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Dejá un comentario top-level en 'reportes/q2' anclado al texto exacto "ingresos netos": "Confirmar este número con Finanzas."</question>
+    <answer>[requiere key + datos sembrados] Debe invocar `outbox_create_comment` (POST /api/u/:user/:slug/comments) con slug='reportes/q2', body='Confirmar este número con Finanzas.' y anchor={ exact:'ingresos netos' } (sin parentId → comentario top-level). El body va como TEXTO PLANO. Si 'ingresos netos' apareciera varias veces, desambiguar con prefix/suffix. NO toca el HTML ni versiona — para proponer un cambio aplicable se usa `outbox_create_suggestion` en su lugar.</answer>
+  </qa_pair>
+
+  <qa_pair>
     <question>Cambiá mi estilo de marca por default a 'editorial'.</question>
     <answer>[requiere key + datos sembrados] Debe invocar `outbox_set_style` (PUT /api/me/style, B3) con stylePreference='editorial' (uno de los 6 IDs del catálogo). Respuesta: { ok:true, stylePreference:'editorial' }. Requiere scope `template`; no re-aplica el HTML del template, solo cambia la preferencia.</answer>
   </qa_pair>

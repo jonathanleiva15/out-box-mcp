@@ -300,6 +300,70 @@ server.registerTool(
 );
 
 server.registerTool(
+  "outbox_create_comment",
+  {
+    title: "Outbox: comentar / responder en un hilo",
+    description:
+      "Postea un comentario (kind 'comment') sobre una página, SIN editar el HTML (capa de anotaciones). " +
+      "Es el flujo 'charlar con mi agente': el AGENTE DEL USUARIO responde/charla en el hilo — lee el contenido " +
+      "(outbox_read / outbox_export) y los comentarios (outbox_read_comments), y deja un comentario o una RESPUESTA. " +
+      "Para responder a un comentario/sugerencia existente pasá `parentId` (el comment.id del padre); el kind sigue " +
+      "siendo 'comment' (hilo de 1 nivel). Sin `parentId` queda como comentario top-level. " +
+      "`anchor.exact` (texto exacto y visible del HTML) es opcional: anclá el comentario a un fragmento puntual; " +
+      "si ese texto se repite, desambiguá con prefix/suffix. `body` es TEXTO PLANO (no mandes HTML — el back lo trata " +
+      "como texto). Si NO sos el owner necesitás un grant 'comment' (o un ?share token). NO modifica el HTML ni publica " +
+      "versión: para proponer un cambio aplicable usá outbox_create_suggestion.",
+    inputSchema: {
+      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      body: z
+        .string()
+        .min(1)
+        .max(4000)
+        .describe("Texto plano del comentario / respuesta. NO HTML (el back lo trata como texto). MAX 4000"),
+      parentId: z
+        .string()
+        .min(1)
+        .max(64)
+        .regex(/^[a-f0-9]+$/, "ID hex (de outbox_read_comments)")
+        .optional()
+        .describe("ID del comentario/sugerencia al que respondés (comment.id). Omitir = comentario top-level"),
+      exact: z
+        .string()
+        .min(1)
+        .max(2000)
+        .optional()
+        .describe(
+          "Texto EXACTO y visible del documento al que anclás el comentario; debe aparecer literal en el HTML servido. MAX 2000",
+        ),
+      prefix: z
+        .string()
+        .max(500)
+        .optional()
+        .describe("Contexto inmediatamente ANTES de `exact` (desambigua si `exact` se repite)"),
+      suffix: z.string().max(500).optional().describe("Contexto inmediatamente DESPUÉS de `exact`"),
+      user: z.string().min(1).max(64).optional().describe("Owner de la página (default: vos)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ slug, body, parentId, exact, prefix, suffix, user }) => {
+    try {
+      const u = await resolveUser(user);
+      const anchor = exact
+        ? { exact, ...(prefix ? { prefix } : {}), ...(suffix ? { suffix } : {}) }
+        : undefined;
+      return ok(
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments`, {
+          method: "POST",
+          body: { kind: "comment", body, ...(parentId ? { parentId } : {}), ...(anchor ? { anchor } : {}) },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
   "outbox_create_suggestion",
   {
     title: "Outbox: proponer un cambio (sugerencia)",
