@@ -40,6 +40,15 @@ function fail(e: unknown): ToolResult {
   return { isError: true, content: [{ type: "text", text: formatError(e) }] };
 }
 
+/**
+ * Codifica un slug jerárquico (ej: `notes/2026`) segmento por segmento.
+ * `encodeURIComponent` sobre el slug entero convierte `/` en `%2F` y el worker
+ * lo rechaza (400 invalid_slug). Igual que el CLI: split → encode → join.
+ */
+function encodeSlugPath(slug: string): string {
+  return slug.split("/").map(encodeURIComponent).join("/");
+}
+
 const VISIBILITY = z.enum(["private", "unlisted", "public"]);
 
 /** Resuelve el username del owner: param explícito → cache → /api/me. */
@@ -160,7 +169,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/versions`),
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/versions`),
       );
     } catch (e) {
       return fail(e);
@@ -185,7 +194,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/blocks`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/blocks`, {
           query: { date },
         }),
       );
@@ -252,7 +261,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/append`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/append`, {
           method: "POST",
           body: { html, label, title, visibility },
         }),
@@ -291,7 +300,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments`),
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/comments`),
       );
     } catch (e) {
       return fail(e);
@@ -352,7 +361,7 @@ server.registerTool(
         ? { exact, ...(prefix ? { prefix } : {}), ...(suffix ? { suffix } : {}) }
         : undefined;
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/comments`, {
           method: "POST",
           body: { kind: "comment", body, ...(parentId ? { parentId } : {}), ...(anchor ? { anchor } : {}) },
         }),
@@ -402,7 +411,7 @@ server.registerTool(
       const u = await resolveUser(user);
       const anchor = { exact, ...(prefix ? { prefix } : {}), ...(suffix ? { suffix } : {}) };
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/comments`, {
           method: "POST",
           body: { kind: "suggestion", body, replacement, anchor },
         }),
@@ -443,7 +452,7 @@ server.registerTool(
       const u = await resolveUser(user);
       return ok(
         await client.req(
-          `/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments/${encodeURIComponent(commentId)}/accept`,
+          `/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/comments/${encodeURIComponent(commentId)}/accept`,
           { method: "POST" },
         ),
       );
@@ -477,7 +486,7 @@ server.registerTool(
       const u = await resolveUser(user);
       return ok(
         await client.req(
-          `/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/comments/${encodeURIComponent(commentId)}/discard`,
+          `/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/comments/${encodeURIComponent(commentId)}/discard`,
           { method: "POST" },
         ),
       );
@@ -505,7 +514,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/rollback`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/rollback`, {
           method: "POST",
           body: { to },
         }),
@@ -541,7 +550,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/squash`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/squash`, {
           method: "POST",
           body: { keepOriginal },
         }),
@@ -569,7 +578,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/visibility`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/visibility`, {
           method: "PUT",
           body: { visibility },
         }),
@@ -596,7 +605,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}`, {
           method: "DELETE",
         }),
       );
@@ -861,7 +870,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/export`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/export`, {
           query: { format },
         }),
       );
@@ -1000,7 +1009,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/diff`, {
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/diff`, {
           query: { from, to },
         }),
       );
@@ -1028,7 +1037,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/access`),
+        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/access`),
       );
     } catch (e) {
       return fail(e);
@@ -1236,7 +1245,7 @@ server.registerTool(
       for (const slug of slugs) {
         try {
           const exported = await client.req<unknown>(
-            `/api/u/${encodeURIComponent(u)}/${encodeURIComponent(slug)}/export`,
+            `/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/export`,
             { query: { format: "json" } },
           );
           posts.push(exported);
