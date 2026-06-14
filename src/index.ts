@@ -801,6 +801,68 @@ server.registerTool(
   },
 );
 
+// ── Tools: event webhooks ───────────────────────────────────────────────────────
+server.registerTool(
+  "outbox_create_webhook",
+  {
+    title: "Outbox: crear event webhook",
+    description:
+      "Registra un endpoint HTTPS que Outbox dispara con un POST firmado cuando ocurre un evento en tu biblioteca (POST /api/webhooks). " +
+      "Eventos: comment.created, version.created, page.published. Entrega async (<= 1 min), firmada con HMAC-SHA256 en el header X-Outbox-Signature (sha256=<hex>). " +
+      "El secret de firma se devuelve UNA sola vez. La URL debe ser HTTPS y no privada/interna. No es destructivo.",
+    inputSchema: {
+      url: z.string().url().describe("URL HTTPS del endpoint (no privada/interna; se valida anti-SSRF)"),
+      events: z
+        .array(z.enum(["comment.created", "version.created", "page.published"]))
+        .min(1)
+        .describe("Eventos a suscribir"),
+      slugPrefix: z.string().max(200).optional().describe("Solo dispara si el slug del evento empieza con este prefijo (opcional)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ url, events, slugPrefix }) => {
+    try {
+      return ok(await client.req("/api/webhooks", { method: "POST", body: { url, events, slugPrefix } }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_list_webhooks",
+  {
+    title: "Outbox: listar event webhooks",
+    description: "Lista tus event webhooks (GET /api/webhooks), sin exponer el secret. Read-only.",
+    inputSchema: {},
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async () => {
+    try {
+      return ok(await client.req("/api/webhooks"));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_delete_webhook",
+  {
+    title: "Outbox: borrar event webhook",
+    description: "Borra un event webhook por id (DELETE /api/webhooks/:id). Idempotente.",
+    inputSchema: { id: z.string().min(1).describe("id del webhook a borrar") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ id }) => {
+    try {
+      return ok(await client.req(`/api/webhooks/${encodeURIComponent(id)}`, { method: "DELETE" }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
 // ── Tools: folders ──────────────────────────────────────────────────────────────
 server.registerTool(
   "outbox_folders",
