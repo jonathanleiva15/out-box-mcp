@@ -6,10 +6,11 @@
 
 - **0.2.0** — consistente en `package.json` (`"version": "0.2.0"`) y `src/constants.ts`
   (`SERVER_VERSION = "0.2.0"`).
-- **47 tools registradas.** Bump 0.1.0 → 0.2.0 (2026-06-14): se cerró la paridad
+- **48 tools registradas.** Bump 0.1.0 → 0.2.0 (2026-06-14): se cerró la paridad
   con el CLI sumando **schedules** (`outbox_create_schedule` / `outbox_list_schedules`
-  / `outbox_delete_schedule`, cron → webhook) y **rotación de keys**
-  (`outbox_rotate_key`, POST /api/keys/rotate, scope `genkey`).
+  / `outbox_delete_schedule`, cron → webhook), **rotación de keys**
+  (`outbox_rotate_key`, POST /api/keys/rotate, scope `genkey`) y **consumo/cuota**
+  (`outbox_usage`, GET /api/me/usage). Paridad CLI ↔ MCP total.
 
 ## Estado de publicación
 

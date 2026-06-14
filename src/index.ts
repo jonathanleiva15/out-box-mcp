@@ -86,6 +86,27 @@ server.registerTool(
 );
 
 server.registerTool(
+  "outbox_usage",
+  {
+    title: "Outbox: consumo y cuota",
+    description:
+      "Devuelve el snapshot de uso y límites de la cuenta (GET /api/me/usage): publishes por hora/día, storage, agent keys, daily docs, todo contra el tope del tier. " +
+      "Usalo antes de un batch grande para no chocar con la cuota. `refresh=true` saltea el cache de 5 min. Read-only.",
+    inputSchema: {
+      refresh: z.boolean().default(false).describe("true = fuerza recálculo (saltea cache de 5 min)"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ refresh }) => {
+    try {
+      return ok(await client.req("/api/me/usage", { query: { refresh: refresh ? "true" : undefined } }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
   "outbox_list",
   {
     title: "Outbox: listar páginas",

@@ -57,13 +57,14 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `OUTBOX_API_BASE` | `https://api.out-box.dev` | Base de la API (mutaciones, listados, gestión). |
 | `OUTBOX_SITE_BASE` | `https://out-box.dev` | Base del sitio público para leer el HTML servido (`SITE_BASE/<user>/<slug>`, sin `/u/`). |
 
-## Tools disponibles (47)
+## Tools disponibles (48)
 
-47 tools en total: **23 read**, **13 write**, **3 comment/owner**, **2 sensible**, **6 destructivo**.
+48 tools en total: **24 read**, **13 write**, **3 comment/owner**, **2 sensible**, **6 destructivo**.
 
 | Tool | Qué hace | |
 |---|---|---|
 | `outbox_me` | Tu cuenta, tier, límites | read |
+| `outbox_usage` | Consumo + cuota (publishes/hora-día, storage, keys) vs el tier | read |
 | `outbox_list` | Listar páginas (tag, limit) | read |
 | `outbox_list_tree` | Árbol de la biblioteca / compartido conmigo | read |
 | `outbox_read` | Leer el HTML de una página (estado actual) | read |
