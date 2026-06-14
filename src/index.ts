@@ -1331,6 +1331,98 @@ server.registerTool(
   },
 );
 
+// ── Tools: schedules (cron → webhook) ───────────────────────────────────────────
+// Outbox NO hospeda IA ni corre la lógica del agente: un schedule simplemente
+// dispara un POST a un webhook tuyo según un cron. El agente vive de tu lado.
+server.registerTool(
+  "outbox_create_schedule",
+  {
+    title: "Outbox: crear schedule (cron → webhook)",
+    description:
+      "Registra un disparador programado: en cada match del cron, Outbox hace un POST a tu webhook HTTPS (POST /api/schedules). " +
+      "Outbox NO corre tu agente — solo dispara el webhook; la lógica vive de tu lado (ese endpoint despierta a tu agente). " +
+      "El cron se evalúa en UTC, granularidad por minuto (ej. '0 9 * * *' = 09:00 UTC diario). La URL debe ser HTTPS y no privada/interna (anti-SSRF). " +
+      "Requiere scope `template`. No es destructivo.",
+    inputSchema: {
+      label: z.string().min(1).max(120).describe("Etiqueta del schedule (para reconocerlo en la lista)"),
+      cronExpression: z.string().min(1).max(120).describe("Expresión cron UTC de 5 campos (ej. '0 9 * * *' = 09:00 UTC diario)"),
+      webhookUrl: z.string().url().describe("URL HTTPS a la que Outbox hará POST en cada disparo (no privada/interna)"),
+      agentKeyId: z.string().min(1).max(120).optional().describe("keyId del agente a notificar (opcional; default: la key actual)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ label, cronExpression, webhookUrl, agentKeyId }) => {
+    try {
+      return ok(
+        await client.req("/api/schedules", {
+          method: "POST",
+          body: { label, cronExpression, webhookUrl, agentKeyId },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_list_schedules",
+  {
+    title: "Outbox: listar schedules",
+    description: "Lista tus schedules (GET /api/schedules): label, cron, timezone (UTC) y el webhook destino. Read-only.",
+    inputSchema: {},
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async () => {
+    try {
+      return ok(await client.req("/api/schedules"));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_delete_schedule",
+  {
+    title: "Outbox: borrar schedule",
+    description: "Borra un schedule por id (DELETE /api/schedules/:id). Deja de disparar el webhook. Idempotente.",
+    inputSchema: { id: z.string().min(1).describe("id del schedule a borrar (de outbox_list_schedules)") },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ id }) => {
+    try {
+      return ok(await client.req(`/api/schedules/${encodeURIComponent(id)}`, { method: "DELETE" }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+// ── Tools: rotación de keys ─────────────────────────────────────────────────────
+server.registerTool(
+  "outbox_rotate_key",
+  {
+    title: "Outbox: rotar una API key",
+    description:
+      "Rota una API key: revoca la vieja y emite una nueva con los MISMOS scopes/label, en una sola operación atómica (POST /api/keys/rotate). " +
+      "El secreto nuevo (`plaintext`) se devuelve UNA SOLA VEZ — guardalo al instante y actualizá los servicios que usaban la key vieja. " +
+      "Sin `keyId` rota la key que estás usando ahora (no disponible con auth de sesión). Write SENSIBLE: confirmá con el usuario antes de rotar. Requiere scope `genkey`.",
+    inputSchema: {
+      keyId: z.string().min(1).max(120).optional().describe("keyId a rotar (de outbox_list_keys). Sin esto, rota la key actual"),
+      label: z.string().min(1).max(60).optional().describe("Label para la NUEVA key (default: <user>-rotated-<short>)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ keyId, label }) => {
+    try {
+      return ok(await client.req("/api/keys/rotate", { method: "POST", body: { keyId, label } }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
 // ── Arranque (stdio) ───────────────────────────────────────────────────────────
 async function main(): Promise<void> {
   const transport = new StdioServerTransport();
