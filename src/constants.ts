@@ -14,5 +14,5 @@ export const SITE_BASE = process.env.OUTBOX_SITE_BASE ?? "https://out-box.dev";
 export const CHARACTER_LIMIT = 25000;
 
 export const SERVER_NAME = "outbox-mcp-server";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.2.0";
 export const USER_AGENT = `${SERVER_NAME}/${SERVER_VERSION}`;

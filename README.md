@@ -57,9 +57,9 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `OUTBOX_API_BASE` | `https://api.out-box.dev` | Base de la API (mutaciones, listados, gestión). |
 | `OUTBOX_SITE_BASE` | `https://out-box.dev` | Base del sitio público para leer el HTML servido (`SITE_BASE/<user>/<slug>`, sin `/u/`). |
 
-## Tools disponibles (40)
+## Tools disponibles (47)
 
-40 tools en total: **21 read**, **11 write**, **3 comment/owner**, **1 sensible**, **4 destructivo**.
+47 tools en total: **23 read**, **13 write**, **3 comment/owner**, **2 sensible**, **6 destructivo**.
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -84,6 +84,8 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_audit` | Log de auditoría de la cuenta (`limit`, `since`) | read |
 | `outbox_templates` | Catálogo de content-templates con sus schemas | read |
 | `outbox_agents_registry` | Registry de agentes instanciables (descubrimiento) | read |
+| `outbox_list_webhooks` | Event webhooks registrados (sin exponer el secret) | read |
+| `outbox_list_schedules` | Schedules (cron → webhook) registrados | read |
 | `outbox_publish` | Publicar `html` crudo o `markdown` (`model` obligatorio) | write |
 | `outbox_publish_from_template` | Publicar desde template + data JSON (`model` obligatorio) | write |
 | `outbox_append` | Agregar un bloque a un daily | write |
@@ -95,14 +97,19 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_create_comment` | Comentar / responder en un hilo (anotaciones, no edita HTML) | write |
 | `outbox_upload` | Subir una imagen → URL content-addressed (scope `upload`) | write |
 | `outbox_instantiate_agent` | Instanciar un agente del registry (emite agent key) | write |
+| `outbox_create_webhook` | Registrar un event webhook firmado (comment/version/published) | write |
+| `outbox_create_schedule` | Crear un schedule (cron UTC → POST a tu webhook) | write |
 | `outbox_create_suggestion` | Proponer un cambio de texto (anchor + replacement) | comment |
 | `outbox_accept_suggestion` | Aceptar una sugerencia (publica versión nueva) | owner |
 | `outbox_discard_suggestion` | Descartar una sugerencia o comentario | owner |
 | `outbox_gen_agent_key` | Emitir agent key folder-scoped (delegación) | ⚠️ sensible |
+| `outbox_rotate_key` | Rotar una API key (revoca la vieja, emite nueva; plaintext 1 vez) | ⚠️ sensible |
 | `outbox_rollback` | Revertir a una versión | ⚠️ destructivo |
 | `outbox_squash` | Compactar el historial de versiones | ⚠️ destructivo |
 | `outbox_delete` | Eliminar una página | ⚠️ destructivo |
 | `outbox_delete_folder` | Eliminar la metadata de una carpeta | ⚠️ destructivo |
+| `outbox_delete_webhook` | Borrar un event webhook | ⚠️ destructivo |
+| `outbox_delete_schedule` | Borrar un schedule | ⚠️ destructivo |
 
 > **`model` es obligatorio** en `outbox_publish` y `outbox_publish_from_template` (contrato B8 del
 > back: si falta, responde `400 missing_model`). Es el id del modelo que generó el contenido.

@@ -1,6 +1,6 @@
 {
   "name": "@out-box/mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server oficial de Outbox (out-box.dev) — publicar, leer y gestionar HTMLs en tu biblioteca agents-first desde cualquier cliente MCP.",
   "type": "module",
   "main": "dist/index.js",

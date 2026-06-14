@@ -1,12 +1,15 @@
 # STATUS.md — @out-box/mcp
 
-> Estado de **release** honesto y verificado. Última actualización: 2026-06-13.
+> Estado de **release** honesto y verificado. Última actualización: 2026-06-14.
 
 ## Versión
 
-- **0.1.0** — consistente en `package.json` (`"version": "0.1.0"`) y `src/constants.ts`
-  (`SERVER_VERSION = "0.1.0"`).
-- 40 tools registradas (21 read, 11 write, 3 comment/owner, 1 sensible, 4 destructivo).
+- **0.2.0** — consistente en `package.json` (`"version": "0.2.0"`) y `src/constants.ts`
+  (`SERVER_VERSION = "0.2.0"`).
+- **47 tools registradas.** Bump 0.1.0 → 0.2.0 (2026-06-14): se cerró la paridad
+  con el CLI sumando **schedules** (`outbox_create_schedule` / `outbox_list_schedules`
+  / `outbox_delete_schedule`, cron → webhook) y **rotación de keys**
+  (`outbox_rotate_key`, POST /api/keys/rotate, scope `genkey`).
 
 ## Estado de publicación
 
