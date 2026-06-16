@@ -15,4 +15,7 @@ export const CHARACTER_LIMIT = 25000;
 
 export const SERVER_NAME = "outbox-mcp-server";
 export const SERVER_VERSION = "0.2.0";
+/** Versión del contrato del API contra el que está construido este server (MAJOR.MINOR).
+ *  Se compara contra `contract` de GET /api/capabilities. */
+export const API_CONTRACT_VERSION = "1.0.0";
 export const USER_AGENT = `${SERVER_NAME}/${SERVER_VERSION}`;
