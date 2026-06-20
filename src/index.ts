@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION } from "./constants.js";
 import { loadConfig } from "./config.js";
-import { OutboxClient, formatError } from "./services/client.js";
+import { OutboxClient, OutboxApiError, formatError } from "./services/client.js";
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 const config = loadConfig();
@@ -696,7 +696,7 @@ server.registerTool(
       contentType: z.string().max(40).optional().describe("Tipo de contenido libre: briefing | report | notes | post | mockup | ..."),
       ttl: z.string().max(16).optional().describe("TTL de visibility (ej. '24h', '7d', '2w'); degrada a private al vencer. Solo aplica a no-private"),
       inheritFolderVisibility: z.boolean().optional().describe("true = hereda la visibility del folder ancestro más cercano"),
-      notifySlack: z.string().max(512).optional().describe("Webhook de Slack para notificar la publicación (opcional)"),
+      notifySlack: z.string().max(512).optional().describe("Canal de Slack a notificar la publicación, ej. '#joni' (NO una URL; el webhook real vive en tu config server-side)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
@@ -1316,27 +1316,53 @@ server.registerTool(
   async ({ prefix, limit, user }) => {
     try {
       const u = await resolveUser(user);
-      const listed = await client.req<{ posts?: { slug?: string }[]; items?: { slug?: string }[] }>(
-        "/api/list",
-        { query: { limit, prefix } },
-      );
-      const rows = listed.posts ?? listed.items ?? [];
-      const slugs = rows
-        .map((r) => (typeof r.slug === "string" ? r.slug : undefined))
-        .filter((s): s is string => typeof s === "string")
-        .slice(0, limit);
 
-      const posts: unknown[] = [];
-      for (const slug of slugs) {
-        try {
-          const exported = await client.req<unknown>(
-            `/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/export`,
-            { query: { format: "json" } },
-          );
-          posts.push(exported);
-        } catch (err) {
-          posts.push({ slug, error: formatError(err) });
+      // Paginar /api/list con cursor hasta juntar `limit` slugs o agotar el bucket.
+      // Antes se usaba solo `limit` sin cursor → con más posts que `limit` el backup
+      // quedaba INCOMPLETO en silencio (trampa de pérdida de datos en una tool de
+      // backup). El backend tope por página es 200, así que pedimos de a 200.
+      const slugs: string[] = [];
+      let cursor: string | undefined;
+      let truncatedByLimit = false;
+      do {
+        const pageSize = Math.min(200, limit - slugs.length);
+        const listed = await client.req<{
+          posts?: { slug?: string }[];
+          items?: { slug?: string }[];
+          cursor?: string | null;
+        }>("/api/list", { query: { limit: pageSize, prefix, cursor } });
+        const rows = listed.posts ?? listed.items ?? [];
+        for (const r of rows) {
+          if (typeof r.slug === "string") slugs.push(r.slug);
+          if (slugs.length >= limit) break;
         }
+        cursor = listed.cursor ?? undefined;
+        if (slugs.length >= limit && cursor) truncatedByLimit = true;
+      } while (cursor && slugs.length < limit);
+
+      // Exportar en paralelo con un pool acotado (no N+1 secuencial). Si la API
+      // tira 429, ABORTAR el batch (seguir martilleando agrava el rate-limit).
+      const posts: unknown[] = [];
+      let rateLimited = false;
+      const POOL = 5;
+      for (let i = 0; i < slugs.length && !rateLimited; i += POOL) {
+        const batch = slugs.slice(i, i + POOL);
+        const results = await Promise.all(
+          batch.map(async (slug) => {
+            try {
+              return await client.req<unknown>(
+                `/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/export`,
+                { query: { format: "json" } },
+              );
+            } catch (err) {
+              if (err instanceof OutboxApiError && err.status === 429) {
+                rateLimited = true;
+              }
+              return { slug, error: formatError(err) };
+            }
+          }),
+        );
+        posts.push(...results);
       }
 
       return ok({
@@ -1344,6 +1370,8 @@ server.registerTool(
         ...(prefix ? { prefix } : {}),
         count: posts.length,
         exportedAt: new Date().toISOString(),
+        ...(truncatedByLimit ? { truncated: true, note: `Backup truncado por limit=${limit}. Subí limit o usá prefix para cubrir el resto.` } : {}),
+        ...(rateLimited ? { aborted: "rate_limited", note: "La API devolvió 429; el batch se abortó para no agravar el rate-limit. Reintentá en unos minutos." } : {}),
         posts,
       });
     } catch (e) {
