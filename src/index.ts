@@ -685,6 +685,15 @@ server.registerTool(
       "Args clave: slug, model (req) + html O markdown. Opcionales: title, visibility, tags, summary, description, contentType, ttl, inheritFolderVisibility.",
     inputSchema: {
       slug: z.string().min(1).max(200).describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
+      owner: z
+        .string()
+        .min(1)
+        .max(64)
+        .optional()
+        .describe(
+          "Teams F1: handle de un ORG del que sos MIEMBRO → publica bajo el namespace del equipo (publish-as-team). " +
+            "Omitir = publica bajo tu namespace propio. Para company keys (key del org) NO hace falta: ya publican bajo el org.",
+        ),
       html: z.string().min(1).optional().describe("HTML crudo de la página (se sirve tal cual; máx 5MB). Excluyente con `markdown`."),
       markdown: z.string().min(1).optional().describe("Fuente Markdown (camino agents-first): el back la renderiza a HTML seguro (escape + allowlist, sin raw-HTML ejecutable) y la envuelve en tu template o el shell de marca. Guarda el .md fuente. Excluyente con `html`."),
       model: MODEL,
@@ -816,6 +825,192 @@ server.registerTool(
   async ({ incoming }) => {
     try {
       return ok(await client.req("/api/grants", { query: { incoming: incoming ? 1 : undefined } }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+// ── Tools: teams / orgs (Teams F1) ──────────────────────────────────────────────
+// Una empresa es un UserRecord{type:'org', ownerUser}. 3 actores comparten el org:
+//   humano  → miembro vía grant de membership (outbox_add_team_member)
+//   agente  → company key folder-scoped (outbox_gen_team_key, key.user = handle)
+//   cliente → share link (outbox_create_share, ya existe)
+// Publicar como equipo: humanos pasan `owner` en outbox_publish; las company keys
+// publican bajo el org automáticamente (sin owner).
+const TEAM_HANDLE = z
+  .string()
+  .min(1)
+  .max(64)
+  .describe("Handle del org/equipo (namespace, ej. 'procontacto')");
+
+const TEAM_ROLE = z
+  .enum(["owner", "member"])
+  .describe("Rol dentro del equipo: owner (gestiona miembros/keys) o member");
+
+server.registerTool(
+  "outbox_create_team",
+  {
+    title: "Outbox: crear un equipo (org)",
+    description:
+      "Crea un equipo/empresa (UserRecord type 'org') bajo un `handle` propio (POST /api/teams). " +
+      "Quedás como owner del org. El handle es el namespace público del equipo: las páginas publicadas como equipo " +
+      "viven bajo out-box.dev/<handle>/<slug>. Tras crearlo podés sumar miembros (outbox_add_team_member) y " +
+      "emitir company keys (outbox_gen_team_key). Respuesta { handle, name, ownerUser, createdAt }. No es destructivo.",
+    inputSchema: {
+      handle: TEAM_HANDLE,
+      name: z.string().min(1).max(120).optional().describe("Nombre legible del equipo (opcional)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ handle, name }) => {
+    try {
+      return ok(await client.req("/api/teams", { method: "POST", body: { handle, name } }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_list_teams",
+  {
+    title: "Outbox: listar mis equipos",
+    description:
+      "Lista los equipos/orgs de los que sos miembro (GET /api/teams). " +
+      "Cada item trae { handle, name, role, addedAt } — `role` indica si sos owner o member. " +
+      "Usalo para descubrir bajo qué namespaces podés publicar como equipo (pasando ese handle como `owner` en outbox_publish). Read-only.",
+    inputSchema: {},
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async () => {
+    try {
+      return ok(await client.req("/api/teams"));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_list_team_members",
+  {
+    title: "Outbox: listar miembros de un equipo",
+    description:
+      "Lista los miembros de un equipo/org (GET /api/teams/:handle/members). " +
+      "Cada item trae { user, role, addedAt, addedBy }. Útil para auditar quién tiene acceso al namespace del equipo. Read-only.",
+    inputSchema: { handle: TEAM_HANDLE },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ handle }) => {
+    try {
+      return ok(await client.req(`/api/teams/${encodeURIComponent(handle)}/members`));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_add_team_member",
+  {
+    title: "Outbox: sumar un miembro al equipo (owner)",
+    description:
+      "Suma un usuario humano de Outbox como miembro de tu equipo/org (POST /api/teams/:handle/members). " +
+      "El miembro puede publicar bajo el namespace del equipo (pasando el handle como `owner` en outbox_publish). " +
+      "OWNER-ONLY: solo el owner del org puede sumar miembros. `role` default 'member'; 'owner' delega gestión. " +
+      "Respuesta { ok, user, role }. No es destructivo.",
+    inputSchema: {
+      handle: TEAM_HANDLE,
+      user: z.string().min(1).max(64).describe("Username del humano a sumar (debe existir)"),
+      role: TEAM_ROLE.optional().describe("Rol del nuevo miembro (default 'member')"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ handle, user, role }) => {
+    try {
+      return ok(
+        await client.req(`/api/teams/${encodeURIComponent(handle)}/members`, {
+          method: "POST",
+          body: { user, role },
+        }),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_remove_team_member",
+  {
+    title: "Outbox: quitar un miembro del equipo (owner)",
+    description:
+      "Quita un miembro de tu equipo/org (DELETE /api/teams/:handle/members/:user). " +
+      "Pierde el acceso a publicar bajo el namespace del equipo. OWNER-ONLY → 403 si no sos el owner del org. " +
+      "Respuesta { ok, removed }. DESTRUCTIVO sobre la membresía (no borra contenido) — confirmá con el usuario.",
+    inputSchema: {
+      handle: TEAM_HANDLE,
+      user: z.string().min(1).max(64).describe("Username del miembro a quitar"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ handle, user }) => {
+    try {
+      return ok(
+        await client.req(
+          `/api/teams/${encodeURIComponent(handle)}/members/${encodeURIComponent(user)}`,
+          { method: "DELETE" },
+        ),
+      );
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_gen_team_key",
+  {
+    title: "Outbox: emitir company key del equipo (owner)",
+    description:
+      "Emite una company key del equipo/org para delegar publicación a un AGENTE bajo el namespace del equipo " +
+      "(POST /api/teams/:handle/keys). A diferencia de outbox_gen_agent_key (que emite bajo TU namespace), esta key " +
+      "tiene user = handle del org: el agente que la use publica bajo out-box.dev/<handle>/ AUTOMÁTICAMENTE, sin pasar " +
+      "`owner`. Con `folder` se acota a una carpeta (blast radius reducido). El secreto (`plaintext`) se devuelve UNA " +
+      "SOLA VEZ — guardalo al instante. OWNER-ONLY. Write SENSIBLE: confirmá con el usuario antes de emitir.",
+    inputSchema: {
+      handle: TEAM_HANDLE,
+      label: z.string().min(1).max(60).describe("Etiqueta de la key (1-60 chars, [a-zA-Z0-9_-:. ])"),
+      folder: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe("Folder al que se acota la key (ej. 'clientes/solera'). Sin folder = todo el namespace del org"),
+      days: z
+        .number()
+        .int()
+        .min(0)
+        .max(365)
+        .optional()
+        .describe("Días hasta expirar (default del back; 0 = no expira)"),
+      verbs: z
+        .array(z.enum(["publish", "list", "delete", "folder", "share", "template", "upload"]))
+        .min(1)
+        .optional()
+        .describe("Verbos permitidos (default del back, típicamente ['publish']). NUNCA genkey/admin"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  async ({ handle, label, folder, days, verbs }) => {
+    try {
+      return ok(
+        await client.req(`/api/teams/${encodeURIComponent(handle)}/keys`, {
+          method: "POST",
+          body: { label, folder, days, verbs },
+        }),
+      );
     } catch (e) {
       return fail(e);
     }
