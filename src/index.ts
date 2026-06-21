@@ -844,10 +844,6 @@ const TEAM_HANDLE = z
   .max(64)
   .describe("Handle del org/equipo (namespace, ej. 'procontacto')");
 
-const TEAM_ROLE = z
-  .enum(["owner", "member"])
-  .describe("Rol dentro del equipo: owner (gestiona miembros/keys) o member");
-
 server.registerTool(
   "outbox_create_team",
   {
@@ -898,7 +894,7 @@ server.registerTool(
     title: "Outbox: listar miembros de un equipo",
     description:
       "Lista los miembros de un equipo/org (GET /api/teams/:handle/members). " +
-      "Cada item trae { user, role, addedAt, addedBy }. Útil para auditar quién tiene acceso al namespace del equipo. Read-only.",
+      "Cada item trae { user, role, addedAt, addedBy, canManageKeys? } — `canManageKeys:true` indica que ese miembro puede emitir/revocar company keys del org. Útil para auditar quién tiene acceso al namespace del equipo. Read-only.",
     inputSchema: { handle: TEAM_HANDLE },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -918,21 +914,21 @@ server.registerTool(
     description:
       "Suma un usuario humano de Outbox como miembro de tu equipo/org (POST /api/teams/:handle/members). " +
       "El miembro puede publicar bajo el namespace del equipo (pasando el handle como `owner` en outbox_publish). " +
-      "OWNER-ONLY: solo el owner del org puede sumar miembros. `role` default 'member'; 'owner' delega gestión. " +
+      "OWNER-ONLY: solo el owner del org puede sumar miembros. El nuevo miembro entra siempre con rol " +
+      "'member' (el ownership se transfiere aparte, no se asigna al sumar). " +
       "Respuesta { ok, user, role }. No es destructivo.",
     inputSchema: {
       handle: TEAM_HANDLE,
       user: z.string().min(1).max(64).describe("Username del humano a sumar (debe existir)"),
-      role: TEAM_ROLE.optional().describe("Rol del nuevo miembro (default 'member')"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
-  async ({ handle, user, role }) => {
+  async ({ handle, user }) => {
     try {
       return ok(
         await client.req(`/api/teams/${encodeURIComponent(handle)}/members`, {
           method: "POST",
-          body: { user, role },
+          body: { user },
         }),
       );
     } catch (e) {
