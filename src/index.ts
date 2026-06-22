@@ -1078,6 +1078,26 @@ server.registerTool(
   },
 );
 
+server.registerTool(
+  "outbox_list_team_keys",
+  {
+    title: "Outbox: listar company keys del equipo",
+    description:
+      "Lista las company keys del equipo/org (GET /api/teams/:handle/keys), SIN exponer el secreto. " +
+      "Cada item trae { id, label, folder, verbs, createdAt, expiresAt, revoked }. Útil para auditar qué agentes tienen acceso al namespace del equipo. " +
+      "Membership-gated: owner o miembro con canManageKeys. Read-only.",
+    inputSchema: { handle: TEAM_HANDLE },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ handle }) => {
+    try {
+      return ok(await client.req(`/api/teams/${encodeURIComponent(handle)}/keys`));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
 // ── Tools: event webhooks ───────────────────────────────────────────────────────
 server.registerTool(
   "outbox_create_webhook",
@@ -1134,6 +1154,29 @@ server.registerTool(
   async ({ id }) => {
     try {
       return ok(await client.req(`/api/webhooks/${encodeURIComponent(id)}`, { method: "DELETE" }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_pause_webhook",
+  {
+    title: "Outbox: pausar/reanudar event webhook",
+    description:
+      "Pausa o reanuda un event webhook SIN borrarlo (PATCH /api/webhooks/:id, body { paused }). " +
+      "Un webhook pausado (paused=true) NO se entrega hasta reanudarlo (paused=false); el drain del worker lo saltea. " +
+      "Útil para silenciar un endpoint temporalmente (mantenimiento, ruido) sin perder su config/secret. Devuelve el webhook actualizado. Idempotente.",
+    inputSchema: {
+      id: z.string().min(1).describe("id del webhook a pausar/reanudar (de outbox_list_webhooks)"),
+      paused: z.boolean().describe("true = pausar (deja de entregar); false = reanudar"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ id, paused }) => {
+    try {
+      return ok(await client.req(`/api/webhooks/${encodeURIComponent(id)}`, { method: "PATCH", body: { paused } }));
     } catch (e) {
       return fail(e);
     }
@@ -1706,6 +1749,29 @@ server.registerTool(
   async ({ id }) => {
     try {
       return ok(await client.req(`/api/schedules/${encodeURIComponent(id)}`, { method: "DELETE" }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_pause_schedule",
+  {
+    title: "Outbox: pausar/reanudar schedule",
+    description:
+      "Pausa o reanuda un schedule SIN borrarlo (PATCH /api/schedules/:id, body { paused }). " +
+      "Un schedule pausado (paused=true) NO dispara su webhook hasta reanudarlo (paused=false); el scheduled handler del worker lo saltea. " +
+      "Útil para detener temporalmente un cron (pausar el agente unos días) sin perder su config. Devuelve el schedule actualizado. Idempotente.",
+    inputSchema: {
+      id: z.string().min(1).describe("id del schedule a pausar/reanudar (de outbox_list_schedules)"),
+      paused: z.boolean().describe("true = pausar (deja de disparar); false = reanudar"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ id, paused }) => {
+    try {
+      return ok(await client.req(`/api/schedules/${encodeURIComponent(id)}`, { method: "PATCH", body: { paused } }));
     } catch (e) {
       return fail(e);
     }
