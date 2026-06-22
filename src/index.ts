@@ -31,7 +31,11 @@ type ToolResult = {
 function ok(data: unknown): ToolResult {
   let text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
   if (text.length > CHARACTER_LIMIT) {
-    text = text.slice(0, CHARACTER_LIMIT) + "\n…(respuesta truncada — usá filtros o paginación)";
+    const original = text.length;
+    text =
+      text.slice(0, CHARACTER_LIMIT) +
+      `\n…(response truncated at ${CHARACTER_LIMIT} of ${original} chars — narrow with prefix/limit/range filters. ` +
+      `respuesta truncada en ${CHARACTER_LIMIT} de ${original} caracteres; acotá con filtros de prefix/limit/rango.)`;
   }
   return { content: [{ type: "text", text }] };
 }
@@ -59,7 +63,9 @@ async function resolveUser(provided?: string): Promise<string> {
   const me = await client.req<{ user?: string; username?: string }>("/api/me");
   cachedUser = me.user ?? me.username;
   if (!cachedUser) {
-    throw new Error("No se pudo determinar el usuario. Pasá `user` explícitamente.");
+    throw new Error(
+      "Could not determine the user. Pass `user` explicitly. / No se pudo determinar el usuario. Pasá `user` explícitamente.",
+    );
   }
   return cachedUser;
 }
@@ -70,7 +76,7 @@ const RO = { readOnlyHint: true, destructiveHint: false, openWorldHint: true } a
 server.registerTool(
   "outbox_me",
   {
-    title: "Outbox: mi cuenta",
+    title: "Outbox: mi perfil",
     description:
       "Devuelve la cuenta autenticada de Outbox: usuario, tier, límites y origen de auth. Útil para saber quién sos y qué scopes/quota tenés antes de publicar. Read-only.",
     inputSchema: {},
@@ -153,9 +159,9 @@ server.registerTool(
   {
     title: "Outbox: leer el HTML de una página",
     description:
-      "Devuelve el HTML servido (estado ACTUAL) de una página. Lee del sitio público (out-box.dev/<user>/<slug>, SIN /u/). " +
+      "Devuelve el HTML servido (estado ACTUAL) de una página. Lee del sitio público (out-box.dev/<user>/<slug>, sin /u/). " +
       "Para páginas privadas, la key debe ser del owner (si no, 404). " +
-      "Solo lee la versión vigente: el back NO sirve versiones históricas por HTML. " +
+      "Solo lee la versión vigente; el back NO sirve versiones históricas por HTML. " +
       "Para una versión vieja usá `outbox_versions` (historial) + `outbox_rollback` (restaurar), o `outbox_export` para el estado actual machine-readable. Read-only.",
     inputSchema: {
       slug: z.string().min(1).max(200).describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
@@ -1560,9 +1566,17 @@ server.registerTool(
         user: u,
         ...(prefix ? { prefix } : {}),
         count: posts.length,
+        requested: slugs.length,
+        complete: !truncatedByLimit && !rateLimited && posts.length === slugs.length,
         exportedAt: new Date().toISOString(),
-        ...(truncatedByLimit ? { truncated: true, note: `Backup truncado por limit=${limit}. Subí limit o usá prefix para cubrir el resto.` } : {}),
-        ...(rateLimited ? { aborted: "rate_limited", note: "La API devolvió 429; el batch se abortó para no agravar el rate-limit. Reintentá en unos minutos." } : {}),
+        ...(truncatedByLimit ? { truncated: true, note: `Backup truncated by limit=${limit}; raise limit or use prefix to cover the rest. / Backup truncado por limit=${limit}. Subí limit o usá prefix para cubrir el resto.` } : {}),
+        ...(rateLimited
+          ? {
+              aborted: "rate_limited",
+              exported: posts.length,
+              note: `Rate-limited (429): the batch was aborted at ${posts.length}/${slugs.length} posts to avoid worsening the limit. This backup is INCOMPLETE — retry in a few minutes. / La API devolvió 429; el batch se abortó en ${posts.length}/${slugs.length} posts. El backup está INCOMPLETO, reintentá en unos minutos.`,
+            }
+          : {}),
         posts,
       });
     } catch (e) {

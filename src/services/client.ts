@@ -22,6 +22,7 @@ export class OutboxApiError extends Error {
   constructor(
     public status: number,
     public body: OutboxErrorBody | null,
+    /** SECURITY: pathname-only (+ search), NEVER a full URL — must not carry credentials. */
     public path: string,
   ) {
     super(`Outbox API ${status} en ${path}: ${body?.error ?? "error"}`);
@@ -89,11 +90,15 @@ export class OutboxClient {
     const res = await fetch(url, {
       headers: { authorization: `Bearer ${this.apiKey}`, "user-agent": USER_AGENT },
     });
+    // SECURITY: the `path` passed to OutboxApiError must be pathname-only (never the
+    // full URL), so a logged/surfaced error can't expose the scheme/host. The Bearer
+    // token only lives in the request header, never in the URL — keep it that way.
+    const safePath = url.pathname + url.search;
     if (!res.ok) {
       if (res.status === 404) {
-        throw new OutboxApiError(404, { error: "not_found_or_private" }, url.pathname);
+        throw new OutboxApiError(404, { error: "not_found_or_private" }, safePath);
       }
-      throw new OutboxApiError(res.status, null, url.pathname);
+      throw new OutboxApiError(res.status, null, safePath);
     }
     return res.text();
   }
