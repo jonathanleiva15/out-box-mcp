@@ -12,7 +12,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import { CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION } from "./constants.js";
+import { CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION, SITE_BASE } from "./constants.js";
 import { loadConfig } from "./config.js";
 import { OutboxClient, OutboxApiError, formatError } from "./services/client.js";
 
@@ -174,6 +174,65 @@ server.registerTool(
       const u = await resolveUser(user);
       const html = await client.readHtml(u, slug);
       return ok(html);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_open",
+  {
+    title: "Outbox: URL canónica de una página",
+    description:
+      "Devuelve la URL pública canónica de una página (out-box.dev/<user>/<slug>, SIN /u/) para abrir o compartir. " +
+      "NO le pega al back: solo construye la URL a partir del owner + slug (resuelve el owner igual que el resto de tools). " +
+      "Para páginas privadas la URL solo carga con la sesión/key del owner; para unlisted/public abre directo. " +
+      "Para LEER el contenido usá outbox_pull / outbox_read. Read-only, sin red.",
+    inputSchema: {
+      slug: z
+        .string()
+        .min(1)
+        .max(200)
+        .describe("Slug/path de la página (acepta paths jerárquicos, ej. 'briefings/hoy')"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ slug, user }) => {
+    try {
+      const u = await resolveUser(user);
+      const url = `${SITE_BASE}/${encodeURIComponent(u)}/${encodeSlugPath(slug)}`;
+      return ok({ url, user: u, slug });
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_pull",
+  {
+    title: "Outbox: traer el contenido de una página (string)",
+    description:
+      "Trae el HTML servido (estado ACTUAL) de una página como STRING crudo, listo para que el agente lo lea/transforme. " +
+      "Es el atajo 'dame el contenido' del flujo agents-first: pull → sumar contexto → outbox_append / outbox_publish. " +
+      "Lee del sitio público (out-box.dev/<user>/<slug>, sin /u/); para privados la key debe ser del owner (si no, 404). " +
+      "Solo sirve la versión vigente. Para JSON estructurado (metadata + contenido) usá outbox_export; para versiones viejas, outbox_versions + outbox_rollback. Read-only.",
+    inputSchema: {
+      slug: z
+        .string()
+        .min(1)
+        .max(200)
+        .describe("Slug/path de la página (acepta paths jerárquicos, ej. 'briefings/hoy')"),
+      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+    },
+    annotations: { ...RO, idempotentHint: true },
+  },
+  async ({ slug, user }) => {
+    try {
+      const u = await resolveUser(user);
+      return ok(await client.readHtml(u, slug));
     } catch (e) {
       return fail(e);
     }

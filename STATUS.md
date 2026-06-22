@@ -6,9 +6,10 @@
 
 - **0.2.0** — consistente en `package.json` (`"version": "0.2.0"`) y `src/constants.ts`
   (`SERVER_VERSION = "0.2.0"`).
-- **54 tools registradas.** (48 de la línea Teams v2 + las 6 tools de equipos/org de
-  Teams F1, que ya vivían en el código aunque el README listaba 48; ahora el doc
-  refleja las 54 reales.) Bump 0.1.0 → 0.2.0 (2026-06-14): se cerró la paridad
+- **56 tools registradas.** (54 previas + `outbox_pull` y `outbox_open`, las tools
+  read-only que acompañan los comandos `pull`/`open` del CLI: `outbox_pull` trae el
+  HTML como string para transformar, `outbox_open` deriva la URL pública canónica sin
+  pegarle al back.) Bump 0.1.0 → 0.2.0 (2026-06-14): se cerró la paridad
   con el CLI sumando **schedules** (`outbox_create_schedule` / `outbox_list_schedules`
   / `outbox_delete_schedule`, cron → webhook), **rotación de keys**
   (`outbox_rotate_key`, POST /api/keys/rotate, scope `genkey`) y **consumo/cuota**

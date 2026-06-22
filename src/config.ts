@@ -38,6 +38,11 @@ interface OutboxRcFile {
   apiBase?: unknown;
   apiKey?: unknown;
   username?: unknown;
+  /**
+   * Reservado: lo escribe el CLI (`outbox login`) para la integración con el vault.
+   * El MCP server NO lo usa hoy; se declara para documentar el shape real del rc y
+   * que el parse no sorprenda a quien lo lea. No remover del parse.
+   */
   vaultPath?: unknown;
 }
 
