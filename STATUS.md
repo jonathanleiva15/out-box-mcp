@@ -6,11 +6,16 @@
 
 - **0.2.0** — consistente en `package.json` (`"version": "0.2.0"`) y `src/constants.ts`
   (`SERVER_VERSION = "0.2.0"`).
-- **48 tools registradas.** Bump 0.1.0 → 0.2.0 (2026-06-14): se cerró la paridad
+- **54 tools registradas.** (48 de la línea Teams v2 + las 6 tools de equipos/org de
+  Teams F1, que ya vivían en el código aunque el README listaba 48; ahora el doc
+  refleja las 54 reales.) Bump 0.1.0 → 0.2.0 (2026-06-14): se cerró la paridad
   con el CLI sumando **schedules** (`outbox_create_schedule` / `outbox_list_schedules`
   / `outbox_delete_schedule`, cron → webhook), **rotación de keys**
   (`outbox_rotate_key`, POST /api/keys/rotate, scope `genkey`) y **consumo/cuota**
-  (`outbox_usage`, GET /api/me/usage). Paridad CLI ↔ MCP total.
+  (`outbox_usage`, GET /api/me/usage). Paridad CLI ↔ MCP total. Incluye además la capa
+  de **comentarios/sugerencias** del roadmap batch 1 (`outbox_read_comments`,
+  `outbox_create_comment`, `outbox_create_suggestion`, `outbox_accept_suggestion`,
+  `outbox_discard_suggestion`).
 
 ## Estado de publicación
 
