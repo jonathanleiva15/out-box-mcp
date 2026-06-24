@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION, SITE_BASE } from "./constants.js";
 import { loadConfig } from "./config.js";
+import { SLUG_SCHEMA, PREFIX_SCHEMA, USER_SCHEMA } from "./schemas.js";
 import { OutboxClient, OutboxApiError, formatError } from "./services/client.js";
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
@@ -164,8 +165,8 @@ server.registerTool(
       "Solo lee la versión vigente; el back NO sirve versiones históricas por HTML. " +
       "Para una versión vieja usá `outbox_versions` (historial) + `outbox_rollback` (restaurar), o `outbox_export` para el estado actual machine-readable. Read-only.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -195,7 +196,7 @@ server.registerTool(
         .min(1)
         .max(200)
         .describe("Slug/path de la página (acepta paths jerárquicos, ej. 'briefings/hoy')"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -225,7 +226,7 @@ server.registerTool(
         .min(1)
         .max(200)
         .describe("Slug/path de la página (acepta paths jerárquicos, ej. 'briefings/hoy')"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -246,8 +247,8 @@ server.registerTool(
     description:
       "Lista las versiones de una página (el versionado automático de Outbox). Read-only.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -270,8 +271,8 @@ server.registerTool(
     description:
       "Devuelve los bloques de una página tipo daily (append-only). `date` opcional (YYYY-MM-DD) para un día puntual. Read-only.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug del daily"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      slug: SLUG_SCHEMA.describe("Slug del daily"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD").optional(),
     },
     annotations: { ...RO, idempotentHint: true },
@@ -334,9 +335,9 @@ server.registerTool(
       "Agrega un bloque HTML a una página tipo daily (append-only, versionado automático). " +
       "Es el flujo agents-first central: durante el día sumás contexto a un HTML. No es destructivo.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug del daily (ej. 'daily/2026-05-29')"),
+      slug: SLUG_SCHEMA.describe("Slug del daily (ej. 'daily/2026-05-29')"),
       html: z.string().min(1).describe("HTML del bloque a agregar"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
       label: z.string().max(120).optional().describe("Etiqueta del bloque (opcional)"),
       title: z.string().max(200).optional().describe("Título de la página si se crea (opcional)"),
       visibility: VISIBILITY.optional().describe("Visibility si se crea la página (default del back)"),
@@ -378,7 +379,7 @@ server.registerTool(
         .min(1)
         .max(200)
         .describe("Slug/path de la página (acepta paths jerárquicos, ej 'briefings/hoy')"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -409,7 +410,7 @@ server.registerTool(
       "como texto). Si NO sos el owner necesitás un grant 'comment' (o un ?share token). NO modifica el HTML ni publica " +
       "versión: para proponer un cambio aplicable usá outbox_create_suggestion.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página"),
       body: z
         .string()
         .min(1)
@@ -436,7 +437,7 @@ server.registerTool(
         .optional()
         .describe("Contexto inmediatamente ANTES de `exact` (desambigua si `exact` se repite)"),
       suffix: z.string().max(500).optional().describe("Contexto inmediatamente DESPUÉS de `exact`"),
-      user: z.string().min(1).max(64).optional().describe("Owner de la página (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner de la página (default: vos)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
@@ -469,7 +470,7 @@ server.registerTool(
       "(o un ?share token). Flujo: 1) leé el contenido (outbox_read / outbox_export), 2) elegí el texto EXACTO a " +
       "reemplazar, 3) sugerí. Si ese texto aparece varias veces, pasá prefix/suffix para desambiguar.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página"),
       exact: z
         .string()
         .min(1)
@@ -488,7 +489,7 @@ server.registerTool(
         .describe("Contexto inmediatamente ANTES de `exact` (desambigua si `exact` se repite)"),
       suffix: z.string().max(500).optional().describe("Contexto inmediatamente DESPUÉS de `exact`"),
       body: z.string().max(4000).optional().describe("Nota: por qué proponés el cambio"),
-      user: z.string().min(1).max(64).optional().describe("Owner de la página (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner de la página (default: vos)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
@@ -522,14 +523,14 @@ server.registerTool(
       "409 anchor_not_found (el texto ancla ya no está/cambió, descartá la sugerencia), 409 comment_not_open, " +
       "400 not_a_suggestion.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página"),
       commentId: z
         .string()
         .min(1)
         .max(64)
         .regex(/^[a-f0-9]+$/, "ID hex (de outbox_read_comments)")
         .describe("ID de la sugerencia (comment.id)"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos). Aceptar es owner-only."),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos). Aceptar es owner-only."),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
@@ -556,14 +557,14 @@ server.registerTool(
       "Descarta una sugerencia o comentario (lo marca discarded; NO toca el HTML). OWNER-ONLY → 403 si no sos el " +
       "owner. Útil para limpiar sugerencias obsoletas (ej. tras un 409 anchor_not_found al intentar aceptarlas).",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página"),
       commentId: z
         .string()
         .min(1)
         .max(64)
         .regex(/^[a-f0-9]+$/, "ID hex (de outbox_read_comments)")
         .describe("ID del comentario/sugerencia"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos). Owner-only."),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos). Owner-only."),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
@@ -590,9 +591,9 @@ server.registerTool(
       "Restaura una página a una versión anterior (cambia la versión actual). El parámetro `to` va en el BODY como número. " +
       "Nota: el rollback NO crea una versión nueva, sobrescribe la actual.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug de la página"),
+      slug: SLUG_SCHEMA.describe("Slug de la página"),
       to: z.number().int().min(1).describe("Número de versión a restaurar"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
   },
@@ -623,12 +624,12 @@ server.registerTool(
       "versiones intermedias se pierden y ya no podrás hacer `outbox_rollback` a ellas — pedí confirmación al " +
       "usuario antes de usarla. Útil para limpiar dailies con cientos de bloques o páginas con mucho versionado.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página a compactar"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página a compactar"),
       keepOriginal: z
         .boolean()
         .optional()
         .describe("true = preserva la primera versión (v1) además de la actual; default false = compacta todo el historial"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
@@ -654,9 +655,9 @@ server.registerTool(
     description:
       "Cambia la visibility de una página: private (solo vos) / unlisted (con link) / public (indexable). No es destructivo.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug de la página"),
+      slug: SLUG_SCHEMA.describe("Slug de la página"),
       visibility: VISIBILITY.describe("Nueva visibility"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },
@@ -682,8 +683,8 @@ server.registerTool(
     description:
       "Elimina una página de tu biblioteca. DESTRUCTIVO e irreversible — pedí confirmación al usuario antes de usarla.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug de la página a eliminar"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      slug: SLUG_SCHEMA.describe("Slug de la página a eliminar"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
   },
@@ -709,7 +710,7 @@ server.registerTool(
       "Crea un link público anónimo (share token) para una página o carpeta, con expiración opcional. " +
       "`resource` = slug de la página o path de la carpeta. No es destructivo.",
     inputSchema: {
-      resource: z.string().min(1).max(200).describe("Slug/path del recurso a compartir"),
+      resource: SLUG_SCHEMA.describe("Slug/path del recurso a compartir"),
       resourceType: z.enum(["post", "folder"]).default("post").describe("Tipo de recurso"),
       expiresInDays: z.number().int().min(1).max(365).nullable().optional().describe("Días hasta expirar (null = sin expiración)"),
     },
@@ -749,7 +750,7 @@ server.registerTool(
       "`model` es OBLIGATORIO (atribución del modelo, B8). `visibility` default `private`. No es destructivo (no borra; versiona).\n\n" +
       "Args clave: slug, model (req) + html O markdown. Opcionales: title, visibility, tags, summary, description, contentType, ttl, inheritFolderVisibility.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
       owner: z
         .string()
         .min(1)
@@ -794,7 +795,7 @@ server.registerTool(
     inputSchema: {
       template: z.string().min(1).max(64).describe("Id del template del catálogo (GET /api/templates)"),
       data: z.record(z.unknown()).describe("Data estructurada que rellena el template (máx 64KB serializado)"),
-      slug: z.string().min(1).max(200).describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'reportes/2026/q3')"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'reportes/2026/q3')"),
       model: MODEL,
       title: z.string().max(200).optional().describe("Título de la página"),
       visibility: VISIBILITY.optional().describe("private (default) / unlisted / public"),
@@ -831,7 +832,7 @@ server.registerTool(
         .min(1)
         .optional()
         .describe("Verbos permitidos (default ['publish']). NUNCA genkey/admin (no se puede escalar)"),
-      folder: z.string().min(1).max(200).optional().describe("Folder al que se acota la key (ej. 'clientes/solera'). Sin folder = todo el namespace"),
+      folder: PREFIX_SCHEMA.optional().describe("Folder al que se acota la key (ej. 'clientes/solera'). Sin folder = todo el namespace"),
       days: z.number().int().min(0).max(365).optional().describe("Días hasta expirar (default 30; 0 = no expira, con warning)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
@@ -854,8 +855,8 @@ server.registerTool(
       "Le da acceso de lectura a otro usuario de Outbox sobre un post o folder tuyo (POST /api/grants). " +
       "El recipient lo ve en su biblioteca como 'compartido conmigo'. v1 solo soporta permiso `view`. No es destructivo.",
     inputSchema: {
-      recipientUser: z.string().min(1).max(64).describe("Username del destinatario (debe existir)"),
-      resource: z.string().min(1).max(200).describe("Slug del post o path del folder a compartir"),
+      recipientUser: USER_SCHEMA.describe("Username del destinatario (debe existir)"),
+      resource: SLUG_SCHEMA.describe("Slug del post o path del folder a compartir"),
       resourceType: z.enum(["post", "folder"]).default("post").describe("Tipo de recurso"),
       expiresInDays: z.number().int().min(1).max(365).nullable().optional().describe("Días hasta expirar (default 30; null = sin expiración)"),
       message: z.string().max(500).optional().describe("Mensaje para el destinatario (opcional)"),
@@ -984,7 +985,7 @@ server.registerTool(
       "Respuesta { ok, user, role }. No es destructivo.",
     inputSchema: {
       handle: TEAM_HANDLE,
-      user: z.string().min(1).max(64).describe("Username del humano a sumar (debe existir)"),
+      user: USER_SCHEMA.describe("Username del humano a sumar (debe existir)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
@@ -1012,7 +1013,7 @@ server.registerTool(
       "Respuesta { ok, removed }. DESTRUCTIVO sobre la membresía (no borra contenido) — confirmá con el usuario.",
     inputSchema: {
       handle: TEAM_HANDLE,
-      user: z.string().min(1).max(64).describe("Username del miembro a quitar"),
+      user: USER_SCHEMA.describe("Username del miembro a quitar"),
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
   },
@@ -1213,7 +1214,7 @@ server.registerTool(
       "Crea o actualiza la metadata de una carpeta — principalmente su visibility default (PUT /api/folders/:prefix, NO PATCH). " +
       "NO afecta retroactivamente lo ya publicado; solo lo que se publique después con inheritFolderVisibility hereda. No es destructivo.",
     inputSchema: {
-      prefix: z.string().min(1).max(200).describe("Path de la carpeta (ej. 'clientes/solera')"),
+      prefix: PREFIX_SCHEMA.describe("Path de la carpeta (ej. 'clientes/solera')"),
       visibility: VISIBILITY.describe("Visibility default de la carpeta"),
       title: z.string().max(200).optional().describe("Título de la carpeta (opcional)"),
       description: z.string().max(2000).optional().describe("Descripción de la carpeta (opcional)"),
@@ -1244,9 +1245,9 @@ server.registerTool(
       "`format=json` (default) devuelve { model, summary, contenido, title, tags, visibility, version, ... } — ideal para que un agente lea el post y su contexto. " +
       "`format=html` devuelve el HTML crudo persistido. Solo exportás lo TUYO (cross-user = 403). Read-only.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug del post a exportar"),
+      slug: SLUG_SCHEMA.describe("Slug del post a exportar"),
       format: z.enum(["json", "html"]).default("json").describe("json (default, estructurado) o html (crudo)"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos). Debe ser vos — cross-user da 403"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos). Debe ser vos — cross-user da 403"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -1322,9 +1323,9 @@ server.registerTool(
         .max(40)
         .optional()
         .describe("Cota inferior temporal (ISO-8601, ej. '2026-06-01T00:00:00Z', o epoch ms). Solo cambios posteriores"),
-      prefix: z.string().min(1).max(200).optional().describe("Acota a una carpeta (ej. 'clientes/solera')"),
-      slug: z.string().min(1).max(200).optional().describe("Acota a una página puntual (slug/path)"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      prefix: PREFIX_SCHEMA.optional().describe("Acota a una carpeta (ej. 'clientes/solera')"),
+      slug: SLUG_SCHEMA.optional().describe("Acota a una página puntual (slug/path)"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -1352,10 +1353,10 @@ server.registerTool(
       "Es más potente que `outbox_list` (que solo filtra por tag): usá esto cuando el agente necesita ENCONTRAR contenido " +
       "por texto antes de leer/actualizar. Read-only.",
     inputSchema: {
-      q: z.string().min(1).max(200).describe("Texto a buscar (full-text sobre tu biblioteca)"),
+      q: SLUG_SCHEMA.describe("Texto a buscar (full-text sobre tu biblioteca)"),
       limit: z.number().int().min(1).max(200).default(20).describe("Máximo de resultados"),
-      prefix: z.string().min(1).max(200).optional().describe("Acota la búsqueda a una carpeta (ej. 'clientes/solera')"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      prefix: PREFIX_SCHEMA.optional().describe("Acota la búsqueda a una carpeta (ej. 'clientes/solera')"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -1382,10 +1383,10 @@ server.registerTool(
       "`from`/`to` son números de versión (de `outbox_versions`). Útil para que el agente entienda QUÉ cambió entre " +
       "dos puntos del historial antes de actuar (revisar, revertir, comentar). Read-only.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página"),
       from: z.number().int().min(1).describe("Versión base (la más vieja)"),
       to: z.number().int().min(1).describe("Versión destino (la más nueva)"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -1412,8 +1413,8 @@ server.registerTool(
       "grants user-to-user, share tokens y keys con scope sobre ese recurso. Útil para auditar el blast radius de un post " +
       "antes de cambiar su visibility o compartirlo. Read-only.",
     inputSchema: {
-      slug: z.string().min(1).max(200).describe("Slug/path de la página"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos)"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
@@ -1553,7 +1554,7 @@ server.registerTool(
         .max(60)
         .regex(/^image\//, "Debe ser un MIME de imagen (image/png, image/jpeg, image/webp, image/gif, image/svg+xml)")
         .describe("MIME de la imagen (ej. 'image/png', 'image/jpeg', 'image/webp')"),
-      filename: z.string().min(1).max(200).optional().describe("Nombre de archivo sugerido (opcional, informativo)"),
+      filename: SLUG_SCHEMA.optional().describe("Nombre de archivo sugerido (opcional, informativo)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },
@@ -1580,7 +1581,7 @@ server.registerTool(
       "arrastrar las páginas que contiene; pedí confirmación al usuario antes de usarla. Complementa `outbox_folders` " +
       "(listar) y `outbox_set_folder` (crear/actualizar): cierra el CRUD de carpetas.",
     inputSchema: {
-      prefix: z.string().min(1).max(200).describe("Path de la carpeta a eliminar (ej. 'clientes/solera')"),
+      prefix: PREFIX_SCHEMA.describe("Path de la carpeta a eliminar (ej. 'clientes/solera')"),
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
   },
@@ -1606,9 +1607,9 @@ server.registerTool(
       "Filtros opcionales: `prefix` (solo una carpeta) y `limit` (tope de posts, protege contexto/quota). " +
       "Si un export individual falla, el post queda con { slug, error } y la exportación continúa (best-effort). Read-only.",
     inputSchema: {
-      prefix: z.string().min(1).max(200).optional().describe("Acota el backup a una carpeta (ej. 'clientes/solera')"),
+      prefix: PREFIX_SCHEMA.optional().describe("Acota el backup a una carpeta (ej. 'clientes/solera')"),
       limit: z.number().int().min(1).max(500).default(100).describe("Tope de posts a exportar (protege contexto y quota)"),
-      user: z.string().min(1).max(64).optional().describe("Owner (default: vos). Debe ser vos — cross-user da 403"),
+      user: USER_SCHEMA.optional().describe("Owner (default: vos). Debe ser vos — cross-user da 403"),
     },
     annotations: { ...RO, idempotentHint: true },
   },
