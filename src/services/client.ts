@@ -86,7 +86,11 @@ export class OutboxClient {
    * Para ver/restaurar versiones viejas: outbox_versions + outbox_rollback.
    */
   async readHtml(user: string, slug: string): Promise<string> {
-    const url = new URL(`${SITE_BASE}/${encodeURIComponent(user)}/${encodeURIComponent(slug)}`);
+    // Encode per-segmento: un slug jerárquico (`a/b/c`) debe conservar los `/`
+    // como separadores de path. `encodeURIComponent(slug)` plano los convertía en
+    // `%2F` y rompía outbox_read/outbox_pull para todo slug con jerarquía.
+    const encSlug = slug.split("/").map(encodeURIComponent).join("/");
+    const url = new URL(`${SITE_BASE}/${encodeURIComponent(user)}/${encSlug}`);
     const res = await fetch(url, {
       headers: { authorization: `Bearer ${this.apiKey}`, "user-agent": USER_AGENT },
     });
