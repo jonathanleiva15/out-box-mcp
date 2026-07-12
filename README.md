@@ -57,9 +57,9 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `OUTBOX_API_BASE` | `https://api.out-box.dev` | Base de la API (mutaciones, listados, gestión). |
 | `OUTBOX_SITE_BASE` | `https://out-box.dev` | Base del sitio público para leer el HTML servido (`SITE_BASE/<user>/<slug>`, sin `/u/`). |
 
-## Tools disponibles (56)
+## Tools disponibles (59)
 
-56 tools en total: **28 read**, **15 write**, **3 comment/owner**, **3 sensible**, **7 destructivo**.
+59 tools en total: **29 read**, **17 write**, **3 comment/owner**, **3 sensible**, **7 destructivo**.
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -91,6 +91,7 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_list_schedules` | Schedules (cron → webhook) registrados | read |
 | `outbox_list_teams` | Equipos (orgs) de los que sos miembro (handle, role) | read |
 | `outbox_list_team_members` | Miembros de un equipo (user, role, canManageKeys?) | read |
+| `outbox_list_team_keys` | Company keys emitidas de un equipo (sin exponer el secret) | read |
 | `outbox_publish` | Publicar `html` crudo o `markdown` (`model` obligatorio) | write |
 | `outbox_publish_from_template` | Publicar desde template + data JSON (`model` obligatorio) | write |
 | `outbox_append` | Agregar un bloque a un daily | write |
@@ -103,7 +104,9 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_upload` | Subir una imagen → URL content-addressed (scope `upload`) | write |
 | `outbox_instantiate_agent` | Instanciar un agente del registry (emite agent key) | write |
 | `outbox_create_webhook` | Registrar un event webhook firmado (comment/version/published) | write |
+| `outbox_pause_webhook` | Pausar / reanudar un event webhook (sin borrarlo) | write |
 | `outbox_create_schedule` | Crear un schedule (cron UTC → POST a tu webhook) | write |
+| `outbox_pause_schedule` | Pausar / reanudar un schedule (sin borrarlo) | write |
 | `outbox_create_team` | Crear un equipo/org bajo un handle propio (sos owner) | write |
 | `outbox_add_team_member` | Sumar un miembro al equipo (owner-only, rol 'member') | write |
 | `outbox_create_suggestion` | Proponer un cambio de texto (anchor + replacement) | comment |

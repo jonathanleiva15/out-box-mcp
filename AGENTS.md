@@ -29,25 +29,31 @@ evals/
 dist/                output de `tsc` (compilado, no se edita a mano)
 ```
 
-## Las 40 tools
+## Las 59 tools
 
 Agrupadas por categoría (ver README.md para la tabla completa con args):
 
-- **read (21)** — `outbox_me`, `outbox_list`, `outbox_list_tree`, `outbox_read`, `outbox_versions`,
-  `outbox_get_blocks`, `outbox_list_shares`, `outbox_list_keys`, `outbox_list_grants`,
-  `outbox_folders`, `outbox_export`, `outbox_capabilities`, `outbox_read_comments`, `outbox_recent`,
-  `outbox_search`, `outbox_diff`, `outbox_access`, `outbox_audit`, `outbox_templates`,
-  `outbox_agents_registry`, `outbox_export_library`.
-- **write (11)** — `outbox_publish`, `outbox_publish_from_template`, `outbox_append`,
+- **read (29)** — `outbox_me`, `outbox_usage`, `outbox_list`, `outbox_list_tree`, `outbox_read`,
+  `outbox_open`, `outbox_pull`, `outbox_versions`, `outbox_get_blocks`, `outbox_list_shares`,
+  `outbox_list_keys`, `outbox_read_comments`, `outbox_list_grants`, `outbox_folders`, `outbox_export`,
+  `outbox_export_library`, `outbox_capabilities`, `outbox_recent`, `outbox_search`, `outbox_diff`,
+  `outbox_access`, `outbox_audit`, `outbox_templates`, `outbox_agents_registry`, `outbox_list_webhooks`,
+  `outbox_list_schedules`, `outbox_list_teams`, `outbox_list_team_members`, `outbox_list_team_keys`.
+- **write (17)** — `outbox_publish`, `outbox_publish_from_template`, `outbox_append`,
   `outbox_set_visibility`, `outbox_set_folder`, `outbox_set_style`, `outbox_create_share`,
-  `outbox_create_grant`, `outbox_create_comment`, `outbox_upload`, `outbox_instantiate_agent`.
+  `outbox_create_grant`, `outbox_create_comment`, `outbox_upload`, `outbox_instantiate_agent`,
+  `outbox_create_webhook`, `outbox_pause_webhook`, `outbox_create_schedule`, `outbox_pause_schedule`,
+  `outbox_create_team`, `outbox_add_team_member`.
 - **comment / owner (3)** — `outbox_create_suggestion` (comment), `outbox_accept_suggestion` (owner),
   `outbox_discard_suggestion` (owner). Flujo agents-first: el agente propone un cambio de texto
   (anchor + replacement) y el owner lo acepta → versión nueva atribuida.
-- **⚠️ sensible (1)** — `outbox_gen_agent_key`: emite una agent key folder-scoped (delegación).
-- **⚠️ destructivo (4)** — `outbox_rollback` (revertir a una versión), `outbox_squash` (compactar el
+- **⚠️ sensible (3)** — `outbox_gen_agent_key` (emite una agent key folder-scoped, delegación),
+  `outbox_gen_team_key` (company key del equipo, owner-only, plaintext 1 vez), `outbox_rotate_key`
+  (rota una API key: revoca la vieja y emite nueva, plaintext 1 vez).
+- **⚠️ destructivo (7)** — `outbox_rollback` (revertir a una versión), `outbox_squash` (compactar el
   historial de versiones), `outbox_delete` (eliminar una página), `outbox_delete_folder` (eliminar
-  una carpeta).
+  una carpeta), `outbox_delete_webhook` (borrar un event webhook), `outbox_delete_schedule` (borrar un
+  schedule), `outbox_remove_team_member` (quitar un miembro del equipo, owner-only).
 
 ## Autenticación
 
