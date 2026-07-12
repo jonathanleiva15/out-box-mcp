@@ -1509,27 +1509,28 @@ server.registerTool(
       "acotar acceso a una carpeta — confirmá con el usuario antes de instanciar. La respuesta puede traer un secreto UNA " +
       "SOLA VEZ (guardalo al instante).",
     inputSchema: {
-      agentId: z.string().min(1).max(64).describe("Id del agente del registry (de outbox_agents_registry)"),
-      label: z.string().min(1).max(60).optional().describe("Etiqueta de la instancia (1-60 chars)"),
-      folder: z
+      fromUser: z
         .string()
         .min(1)
-        .max(200)
-        .optional()
-        .describe("Folder al que se acota el agente (blast radius reducido, ej. 'clientes/solera')"),
-      config: z
+        .max(64)
+        .describe("Username DUEÑO del registry de donde se clona el agente (el back lo exige)"),
+      agentId: z.string().min(1).max(64).describe("Id del agente del registry (de outbox_agents_registry)"),
+      inputs: z
         .record(z.unknown())
         .optional()
-        .describe("Config estructurada de la instancia (campos que pida el agente del registry)"),
+        .describe("Config/inputs estructurados de la instancia (campos que pida el agente del registry)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
-  async ({ agentId, label, folder, config }) => {
+  // El back (POST /api/agents/instantiate) EXIGE { fromUser, agentId } y lee
+  // `inputs`; ignora label/folder (la key clonada deriva sus scopes del agente
+  // fuente). Mandar el shape viejo daba 400 invalid_fields siempre.
+  async ({ fromUser, agentId, inputs }) => {
     try {
       return ok(
         await client.req("/api/agents/instantiate", {
           method: "POST",
-          body: { agentId, label, folder, config },
+          body: { fromUser, agentId, inputs },
         }),
       );
     } catch (e) {
