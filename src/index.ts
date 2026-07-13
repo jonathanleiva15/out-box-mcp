@@ -12,10 +12,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import { CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION, SITE_BASE } from "./constants.js";
+import { API_BASE, CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION, SITE_BASE, USER_AGENT } from "./constants.js";
 import { loadConfig } from "./config.js";
 import { SLUG_SCHEMA, PREFIX_SCHEMA, USER_SCHEMA } from "./schemas.js";
-import { OutboxClient, OutboxApiError, formatError } from "./services/client.js";
+import { OutboxClient, OutboxApiError, formatError, type OutboxErrorBody } from "./services/client.js";
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 const config = loadConfig();
@@ -43,6 +43,56 @@ function ok(data: unknown): ToolResult {
 
 function fail(e: unknown): ToolResult {
   return { isError: true, content: [{ type: "text", text: formatError(e) }] };
+}
+
+/**
+ * Igual que ok() pero SIN el cap de CHARACTER_LIMIT. Para tools que devuelven
+ * contenido AUTORITATIVO destinado a round-trip / backup: truncar acá corrompe el
+ * contenido. Un outbox_pull recortado que el agente re-publica pisa la página con
+ * HTML mutilado (pérdida de datos irreversible en la versión vigente), y un backup
+ * JSON cortado a la mitad queda inválido/inusable. El cap de CHARACTER_LIMIT queda
+ * reservado para las tools de listado/metadata, donde acotar el contexto es seguro.
+ * (BUGS-VALIDACION #7.)
+ */
+function raw(data: unknown): ToolResult {
+  const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+  return { content: [{ type: "text", text }] };
+}
+
+/**
+ * POST de bytes crudos a /api/uploads. El worker (uploads.ts → readUploadBytes)
+ * NO decodifica base64: para un request no-multipart lee el body crudo con
+ * `req.arrayBuffer()` y valida los magic bytes del contenido. Mandar
+ * {data:base64,...} como JSON fallaba SIEMPRE (el back veía los bytes del string
+ * JSON, que no matchean ningún magic number → 415). Por eso decodificamos el
+ * base64 y posteamos los bytes ya crudos con el content-type declarado (solo
+ * hint; el back valida el contenido real). Mismo manejo de auth/errores que
+ * OutboxClient.req para que fail()/formatError sean idénticos. (BUGS-VALIDACION #6.)
+ */
+async function uploadImageBytes(bytes: Uint8Array, contentType: string): Promise<unknown> {
+  const url = new URL(API_BASE + "/api/uploads");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${config.apiKey}`,
+      accept: "application/json",
+      "user-agent": USER_AGENT,
+      "content-type": contentType,
+      "x-requested-with": "XMLHttpRequest",
+    },
+    body: bytes,
+  });
+  if (!res.ok) {
+    let parsed: OutboxErrorBody | null = null;
+    try {
+      parsed = (await res.json()) as OutboxErrorBody;
+    } catch {
+      parsed = null;
+    }
+    throw new OutboxApiError(res.status, parsed, "/api/uploads");
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : {};
 }
 
 /**
@@ -174,7 +224,7 @@ server.registerTool(
     try {
       const u = await resolveUser(user);
       const html = await client.readHtml(u, slug);
-      return ok(html);
+      return raw(html);
     } catch (e) {
       return fail(e);
     }
@@ -233,7 +283,7 @@ server.registerTool(
   async ({ slug, user }) => {
     try {
       const u = await resolveUser(user);
-      return ok(await client.readHtml(u, slug));
+      return raw(await client.readHtml(u, slug));
     } catch (e) {
       return fail(e);
     }
@@ -1254,11 +1304,14 @@ server.registerTool(
   async ({ slug, format, user }) => {
     try {
       const u = await resolveUser(user);
-      return ok(
-        await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/export`, {
-          query: { format },
-        }),
+      const exported = await client.req(
+        `/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/export`,
+        { query: { format } },
       );
+      // format=html devuelve el HTML crudo persistido: contenido autoritativo que
+      // NO debe truncarse (round-trip → re-publish). El JSON estructurado se
+      // mantiene con el cap de contexto habitual. (BUGS-VALIDACION #7.)
+      return format === "html" ? raw(exported) : ok(exported);
     } catch (e) {
       return fail(e);
     }
@@ -1559,14 +1612,12 @@ server.registerTool(
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },
-  async ({ data, contentType, filename }) => {
+  async ({ data, contentType }) => {
     try {
-      return ok(
-        await client.req("/api/uploads", {
-          method: "POST",
-          body: { data, contentType, filename },
-        }),
-      );
+      // El back deriva todo del contenido (hash + magic bytes); `filename` es solo
+      // informativo y el path raw-body del worker lo ignora. Ver uploadImageBytes.
+      const bytes = new Uint8Array(Buffer.from(data, "base64"));
+      return ok(await uploadImageBytes(bytes, contentType));
     } catch (e) {
       return fail(e);
     }
@@ -1666,7 +1717,9 @@ server.registerTool(
         posts.push(...results);
       }
 
-      return ok({
+      // Backup: JSON autoritativo para portabilidad. NO truncar — un backup cortado
+      // a la mitad queda inválido/inusable. (BUGS-VALIDACION #7.)
+      return raw({
         user: u,
         ...(prefix ? { prefix } : {}),
         count: posts.length,
