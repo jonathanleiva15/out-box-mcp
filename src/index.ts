@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { API_BASE, CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION, SITE_BASE, USER_AGENT } from "./constants.js";
 import { loadConfig } from "./config.js";
-import { SLUG_SCHEMA, PREFIX_SCHEMA, USER_SCHEMA } from "./schemas.js";
+import { SLUG_SCHEMA, PREFIX_SCHEMA, USER_SCHEMA, FREE_TEXT_SCHEMA } from "./schemas.js";
 import { OutboxClient, OutboxApiError, formatError, type OutboxErrorBody } from "./services/client.js";
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
@@ -1216,7 +1216,7 @@ server.registerTool(
   {
     title: "Outbox: pausar/reanudar event webhook",
     description:
-      "Pausa o reanuda un event webhook SIN borrarlo (PATCH /api/webhooks/:id, body { paused }). " +
+      "Pausa o reanuda un event webhook SIN borrarlo (POST /api/webhooks/:id, body { paused }). " +
       "Un webhook pausado (paused=true) NO se entrega hasta reanudarlo (paused=false); el drain del worker lo saltea. " +
       "Útil para silenciar un endpoint temporalmente (mantenimiento, ruido) sin perder su config/secret. Devuelve el webhook actualizado. Idempotente.",
     inputSchema: {
@@ -1227,7 +1227,7 @@ server.registerTool(
   },
   async ({ id, paused }) => {
     try {
-      return ok(await client.req(`/api/webhooks/${encodeURIComponent(id)}`, { method: "PATCH", body: { paused } }));
+      return ok(await client.req(`/api/webhooks/${encodeURIComponent(id)}`, { method: "POST", body: { paused } }));
     } catch (e) {
       return fail(e);
     }
@@ -1406,7 +1406,7 @@ server.registerTool(
       "Es más potente que `outbox_list` (que solo filtra por tag): usá esto cuando el agente necesita ENCONTRAR contenido " +
       "por texto antes de leer/actualizar. Read-only.",
     inputSchema: {
-      q: SLUG_SCHEMA.describe("Texto a buscar (full-text sobre tu biblioteca)"),
+      q: FREE_TEXT_SCHEMA.describe("Texto a buscar (full-text sobre tu biblioteca)"),
       limit: z.number().int().min(1).max(200).default(20).describe("Máximo de resultados"),
       prefix: PREFIX_SCHEMA.optional().describe("Acota la búsqueda a una carpeta (ej. 'clientes/solera')"),
       user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
@@ -1608,7 +1608,7 @@ server.registerTool(
         .max(60)
         .regex(/^image\//, "Debe ser un MIME de imagen (image/png, image/jpeg, image/webp, image/gif, image/svg+xml)")
         .describe("MIME de la imagen (ej. 'image/png', 'image/jpeg', 'image/webp')"),
-      filename: SLUG_SCHEMA.optional().describe("Nombre de archivo sugerido (opcional, informativo)"),
+      filename: FREE_TEXT_SCHEMA.optional().describe("Nombre de archivo sugerido (opcional, informativo)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },
@@ -1815,7 +1815,7 @@ server.registerTool(
   {
     title: "Outbox: pausar/reanudar schedule",
     description:
-      "Pausa o reanuda un schedule SIN borrarlo (PATCH /api/schedules/:id, body { paused }). " +
+      "Pausa o reanuda un schedule SIN borrarlo (POST /api/schedules/:id, body { paused }). " +
       "Un schedule pausado (paused=true) NO dispara su webhook hasta reanudarlo (paused=false); el scheduled handler del worker lo saltea. " +
       "Útil para detener temporalmente un cron (pausar el agente unos días) sin perder su config. Devuelve el schedule actualizado. Idempotente.",
     inputSchema: {
@@ -1826,7 +1826,7 @@ server.registerTool(
   },
   async ({ id, paused }) => {
     try {
-      return ok(await client.req(`/api/schedules/${encodeURIComponent(id)}`, { method: "PATCH", body: { paused } }));
+      return ok(await client.req(`/api/schedules/${encodeURIComponent(id)}`, { method: "POST", body: { paused } }));
     } catch (e) {
       return fail(e);
     }
