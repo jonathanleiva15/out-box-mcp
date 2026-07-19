@@ -11,12 +11,44 @@ Es una de las **3 vías** para usar Outbox desde un agente:
 
 ## Instalación (local, stdio)
 
-No requiere instalar nada global: el cliente MCP lo lanza con `npx`. Solo necesitás tu **API key**
-de Outbox (`outbox_*`).
+> ⚠️ **El paquete todavía NO está publicado en npm** (`@out-box/mcp` → 404, verificado 2026-07-18).
+> El config con `npx -y @out-box/mcp` de más abajo **no funciona aún** — quedará como la vía
+> recomendada cuando se publique. **Hoy la vía que SÍ funciona** es correr el server desde el
+> repo clonado (ver "Instalación desde el repo").
 
-### Claude Desktop / Cursor
+Solo necesitás tu **API key** de Outbox (`outbox_*`).
 
-Agregá esto a tu config de MCP (`claude_desktop_config.json`):
+### Instalación desde el repo (la vía que funciona hoy)
+
+```bash
+git clone https://github.com/jonathanleiva15/out-box-mcp.git
+cd out-box-mcp
+npm install
+npm run build        # compila a dist/
+```
+
+Y apuntá tu config de MCP (`claude_desktop_config.json`) al build local:
+
+```json
+{
+  "mcpServers": {
+    "outbox": {
+      "command": "node",
+      "args": ["/ruta/absoluta/al/repo/out-box-mcp/dist/index.js"],
+      "env": {
+        "OUTBOX_API_KEY": "outbox_xxxxxxxxxxxxxxxx"
+      }
+    }
+  }
+}
+```
+
+Alternativa: `npm link` dentro del repo registra el bin `outbox-mcp` globalmente, y en el config
+usás `"command": "outbox-mcp"` sin `args`.
+
+### Claude Desktop / Cursor — vía `npx` (cuando el paquete se publique)
+
+No requiere instalar nada global: el cliente MCP lo lanza con `npx`.
 
 ```json
 {
@@ -143,6 +175,7 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 ```bash
 npm install
 npm run build          # compila a dist/
+npm run test           # build + tests unitarios (node --test contra dist/)
 npm run inspector      # probar con MCP Inspector
 ```
 

@@ -7,8 +7,9 @@
 Server **MCP oficial de [Outbox](https://out-box.dev)** (out-box.dev). Expone Outbox como
 **herramientas nativas** para cualquier cliente MCP (Claude Desktop, Cursor, etc.) — sin curl ni CLI.
 
-El cliente MCP lo lanza por **stdio** con `npx -y @out-box/mcp` y una credencial `OUTBOX_API_KEY`
-(`outbox_*`). No requiere instalación global.
+El cliente MCP lo lanza por **stdio** con una credencial `OUTBOX_API_KEY` (`outbox_*`).
+La forma de lanzarlo depende del estado de publicación del paquete en npm — ver el README
+(sección Instalación) para las vías vigentes y `STATUS.md` para el estado de release.
 
 Es una de las **3 vías** para usar Outbox desde un agente, todas contra la misma API/back y la misma
 API key:
@@ -20,40 +21,61 @@ API key:
 
 ```
 src/
-├── constants.ts     API_BASE / SITE_BASE, SERVER_NAME, SERVER_VERSION, límites
-├── config.ts        resolución de credencial y defaults (key, user, bases)
-├── index.ts         entry: registra las tools y arranca el server stdio
-└── services/        lógica de cada tool (fetch a la API, parsing de respuestas)
+├── constants.ts        API_BASE / SITE_BASE, SERVER_NAME, SERVER_VERSION, límites
+├── config.ts           resolución de credencial y defaults (key, user, bases)
+├── schemas.ts          esquemas Zod compartidos anti path-traversal (SLUG_SCHEMA,
+│                       PREFIX_SCHEMA, USER_SCHEMA, TEAM_HANDLE_SCHEMA, FREE_TEXT_SCHEMA)
+├── paths.ts            helpers PUROS de paths de URL (encodeSlugPath, per-segmento) —
+│                       sin I/O ni config, la única implementación compartida
+├── index.ts            entry MONOLÍTICO: acá viven TODAS las tools (server.registerTool)
+│                       + helpers ok()/fail() + arranque del server stdio
+└── services/
+    └── client.ts       OutboxClient: fetch a la API, readHtml del sitio público,
+                        parsing de errores (missingScope / missingAnyOf)
+test/                   tests unitarios (node:test, *.test.mjs) — corren contra dist/
 evals/
-└── outbox-evals.xml golden dataset / evals del server
-dist/                output de `tsc` (compilado, no se edita a mano)
+└── outbox-evals.xml    golden dataset / evals del server
+dist/                   output de `tsc` (compilado, no se edita a mano)
 ```
 
-## Las 59 tools
+## Las tools
 
-Agrupadas por categoría (ver README.md para la tabla completa con args):
+Todas las tools se registran en `src/index.ts` (no hay un archivo por tool). Para el
+**conteo real** no confíes en ningún doc: derivalo con
+`grep -c registerTool src/index.ts` o corré el `docs-check.mjs` de la skill
+`outbox-docs-sync`. La tabla completa (nombre, qué hace, categoría) vive en README.md.
 
-- **read (29)** — `outbox_me`, `outbox_usage`, `outbox_list`, `outbox_list_tree`, `outbox_read`,
-  `outbox_open`, `outbox_pull`, `outbox_versions`, `outbox_get_blocks`, `outbox_list_shares`,
-  `outbox_list_keys`, `outbox_read_comments`, `outbox_list_grants`, `outbox_folders`, `outbox_export`,
-  `outbox_export_library`, `outbox_capabilities`, `outbox_recent`, `outbox_search`, `outbox_diff`,
-  `outbox_access`, `outbox_audit`, `outbox_templates`, `outbox_agents_registry`, `outbox_list_webhooks`,
-  `outbox_list_schedules`, `outbox_list_teams`, `outbox_list_team_members`, `outbox_list_team_keys`.
-- **write (17)** — `outbox_publish`, `outbox_publish_from_template`, `outbox_append`,
-  `outbox_set_visibility`, `outbox_set_folder`, `outbox_set_style`, `outbox_create_share`,
-  `outbox_create_grant`, `outbox_create_comment`, `outbox_upload`, `outbox_instantiate_agent`,
-  `outbox_create_webhook`, `outbox_pause_webhook`, `outbox_create_schedule`, `outbox_pause_schedule`,
-  `outbox_create_team`, `outbox_add_team_member`.
-- **comment / owner (3)** — `outbox_create_suggestion` (comment), `outbox_accept_suggestion` (owner),
-  `outbox_discard_suggestion` (owner). Flujo agents-first: el agente propone un cambio de texto
-  (anchor + replacement) y el owner lo acepta → versión nueva atribuida.
-- **⚠️ sensible (3)** — `outbox_gen_agent_key` (emite una agent key folder-scoped, delegación),
-  `outbox_gen_team_key` (company key del equipo, owner-only, plaintext 1 vez), `outbox_rotate_key`
-  (rota una API key: revoca la vieja y emite nueva, plaintext 1 vez).
-- **⚠️ destructivo (7)** — `outbox_rollback` (revertir a una versión), `outbox_squash` (compactar el
-  historial de versiones), `outbox_delete` (eliminar una página), `outbox_delete_folder` (eliminar
-  una carpeta), `outbox_delete_webhook` (borrar un event webhook), `outbox_delete_schedule` (borrar un
-  schedule), `outbox_remove_team_member` (quitar un miembro del equipo, owner-only).
+Categorías (la anotación de cada tool en `index.ts` es la fuente de verdad):
+
+- **read** — listados, lecturas de HTML/JSON, capabilities, audit, teams. Read-only.
+- **write** — publish, append, visibility, shares, grants, webhooks, schedules, teams.
+- **comment / owner** — flujo de sugerencias agents-first: el agente propone un cambio de
+  texto (anchor + replacement) y el owner lo acepta → versión nueva atribuida.
+- **⚠️ sensible** — emisión/rotación de API keys (plaintext se muestra 1 sola vez).
+- **⚠️ destructivo** — delete/rollback/squash/remove-member.
+
+## Convención: encoding y validación de slugs/prefixes
+
+Regla dura del repo (rompió prod dos veces antes de fijarse):
+
+- **Slugs y prefixes se encodean SIEMPRE per-segmento con `encodeSlugPath`**
+  (`src/paths.ts`): split por `/` → `encodeURIComponent` de cada segmento → join con `/`.
+  **NUNCA** `encodeURIComponent` del path entero: convierte `/` en `%2F` y el worker
+  splitea el pathname crudo sin decodificar → `clientes%2Fsolera` cae como UN segmento
+  → `400 invalid_slug` / `invalid_prefix`. Aplica a toda URL que lleve un slug/prefix
+  (API y sitio público). Si agregás una tool nueva con slug/prefix en la URL, usá
+  `encodeSlugPath` — no reimplementes el encode inline.
+- **Todo input que viaje en una URL se valida con los schemas compartidos de
+  `src/schemas.ts`**: `SLUG_SCHEMA`/`PREFIX_SCHEMA` (regex path-slug copiado verbatim del
+  backend + refine anti `.`/`..` → cierra path traversal), `USER_SCHEMA`/
+  `TEAM_HANDLE_SCHEMA` (regex username verbatim del backend; el charset sin `.` bloquea
+  dot-segments que sobreviven a `encodeURIComponent` y reescribirían segmentos como
+  `/api/teams/:handle/members/:user`). `FREE_TEXT_SCHEMA` es solo para texto que NO se
+  concatena a URLs (`q` de búsqueda, `filename` informativo). No declares
+  `z.string().min(1).max(200)` inline para un slug/user: usá el schema compartido y
+  agregale tu `.describe(...)` encima.
+- Si el backend cambia sus regex (`out-box/worker/src/lib/slug.ts`,
+  `out-box/worker/src/lib/users.ts`), estos schemas deben re-copiarse verbatim.
 
 ## Autenticación
 
@@ -88,6 +110,7 @@ Variables de entorno (todas opcionales salvo la credencial):
 ```bash
 npm install
 npm run build          # compila a dist/ (tsc)
+npm run test           # build + tests unitarios (node --test, corren contra dist/)
 npm run dev            # tsx watch src/index.ts
 npm run inspector      # probar con MCP Inspector
 ```
