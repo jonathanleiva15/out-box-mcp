@@ -14,7 +14,8 @@ import { z } from "zod";
 
 import { API_BASE, CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION, SITE_BASE, USER_AGENT } from "./constants.js";
 import { loadConfig } from "./config.js";
-import { SLUG_SCHEMA, PREFIX_SCHEMA, USER_SCHEMA, FREE_TEXT_SCHEMA } from "./schemas.js";
+import { SLUG_SCHEMA, PREFIX_SCHEMA, USER_SCHEMA, TEAM_HANDLE_SCHEMA, FREE_TEXT_SCHEMA } from "./schemas.js";
+import { encodeSlugPath } from "./paths.js";
 import { OutboxClient, OutboxApiError, formatError, type OutboxErrorBody } from "./services/client.js";
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
@@ -93,15 +94,6 @@ async function uploadImageBytes(bytes: Uint8Array, contentType: string): Promise
   }
   const text = await res.text();
   return text ? JSON.parse(text) : {};
-}
-
-/**
- * Codifica un slug jerárquico (ej: `notes/2026`) segmento por segmento.
- * `encodeURIComponent` sobre el slug entero convierte `/` en `%2F` y el worker
- * lo rechaza (400 invalid_slug). Igual que el CLI: split → encode → join.
- */
-function encodeSlugPath(slug: string): string {
-  return slug.split("/").map(encodeURIComponent).join("/");
 }
 
 const VISIBILITY = z.enum(["private", "unlisted", "public"]);
@@ -241,11 +233,7 @@ server.registerTool(
       "Para páginas privadas la URL solo carga con la sesión/key del owner; para unlisted/public abre directo. " +
       "Para LEER el contenido usá outbox_pull / outbox_read. Read-only, sin red.",
     inputSchema: {
-      slug: z
-        .string()
-        .min(1)
-        .max(200)
-        .describe("Slug/path de la página (acepta paths jerárquicos, ej. 'briefings/hoy')"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página (acepta paths jerárquicos, ej. 'briefings/hoy')"),
       user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
@@ -271,11 +259,7 @@ server.registerTool(
       "Lee del sitio público (out-box.dev/<user>/<slug>, sin /u/); para privados la key debe ser del owner (si no, 404). " +
       "Solo sirve la versión vigente. Para JSON estructurado (metadata + contenido) usá outbox_export; para versiones viejas, outbox_versions + outbox_rollback. Read-only.",
     inputSchema: {
-      slug: z
-        .string()
-        .min(1)
-        .max(200)
-        .describe("Slug/path de la página (acepta paths jerárquicos, ej. 'briefings/hoy')"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página (acepta paths jerárquicos, ej. 'briefings/hoy')"),
       user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
@@ -424,11 +408,7 @@ server.registerTool(
       "status (open | resolved | accepted | discarded), createdAt, resultingVersion?. Para ver sugerencias " +
       "pendientes filtrá por status=open. Páginas privadas: key del owner, grant view/comment, o ?share. Read-only.",
     inputSchema: {
-      slug: z
-        .string()
-        .min(1)
-        .max(200)
-        .describe("Slug/path de la página (acepta paths jerárquicos, ej 'briefings/hoy')"),
+      slug: SLUG_SCHEMA.describe("Slug/path de la página (acepta paths jerárquicos, ej 'briefings/hoy')"),
       user: USER_SCHEMA.optional().describe("Owner (default: vos)"),
     },
     annotations: { ...RO, idempotentHint: true },
@@ -954,11 +934,11 @@ server.registerTool(
 //   cliente → share link (outbox_create_share, ya existe)
 // Publicar como equipo: humanos pasan `owner` en outbox_publish; las company keys
 // publican bajo el org automáticamente (sin owner).
-const TEAM_HANDLE = z
-  .string()
-  .min(1)
-  .max(64)
-  .describe("Handle del org/equipo (namespace, ej. 'procontacto')");
+// Misma regla canónica que un username ([a-z0-9-]{2,32}, ver schemas.ts): el
+// charset sin '.' bloquea dot-segments que reescribirían /api/teams/:handle/...
+const TEAM_HANDLE = TEAM_HANDLE_SCHEMA.describe(
+  "Handle del org/equipo (namespace, ej. 'procontacto')",
+);
 
 server.registerTool(
   "outbox_create_team",
@@ -1094,12 +1074,11 @@ server.registerTool(
     inputSchema: {
       handle: TEAM_HANDLE,
       label: z.string().min(1).max(60).describe("Etiqueta de la key (1-60 chars, [a-zA-Z0-9_-:. ])"),
-      folder: z
-        .string()
-        .min(1)
-        .max(200)
-        .optional()
-        .describe("Folder al que se acota la key (ej. 'clientes/solera'). Sin folder = todo el namespace del org"),
+      // Prefix de carpeta como los demás (anti-traversal). Viaja SOLO en el body
+      // JSON del POST (nunca se concatena a la URL), así que el schema alcanza.
+      folder: PREFIX_SCHEMA.optional().describe(
+        "Folder al que se acota la key (ej. 'clientes/solera'). Sin folder = todo el namespace del org",
+      ),
       days: z
         .number()
         .int()
@@ -1274,7 +1253,9 @@ server.registerTool(
   async ({ prefix, visibility, title, description }) => {
     try {
       return ok(
-        await client.req(`/api/folders/${encodeURIComponent(prefix)}`, {
+        // encodeSlugPath (NO encodeURIComponent del prefix entero): el back splitea
+        // el pathname crudo — `clientes%2Fsolera` cae como UN segmento → 400 invalid_prefix.
+        await client.req(`/api/folders/${encodeSlugPath(prefix)}`, {
           method: "PUT",
           body: { visibility, title, description },
         }),
@@ -1640,7 +1621,8 @@ server.registerTool(
   async ({ prefix }) => {
     try {
       return ok(
-        await client.req(`/api/folders/${encodeURIComponent(prefix)}`, { method: "DELETE" }),
+        // encodeSlugPath: mismo contrato que outbox_set_folder — el back no decodifica %2F.
+        await client.req(`/api/folders/${encodeSlugPath(prefix)}`, { method: "DELETE" }),
       );
     } catch (e) {
       return fail(e);

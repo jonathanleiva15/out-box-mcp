@@ -62,5 +62,31 @@ export const PREFIX_SCHEMA = z
  */
 export const FREE_TEXT_SCHEMA = z.string().min(1).max(200);
 
+/**
+ * Regex username/handle. Copiado VERBATIM del backend
+ * (`out-box/worker/src/lib/users.ts` → `USERNAME_RE`; los handles de org se
+ * validan con la MISMA regla en `handlers/teams.ts` → isValidUsername).
+ *
+ * SEGURIDAD: el charset excluye el punto y el slash, así que los dot-segments
+ * (`.`/`..`) — que sobreviven a `encodeURIComponent` y podrían reescribir
+ * segmentos de URL como `/api/teams/:handle/members/:user` — quedan bloqueados
+ * de raíz, igual que hace SLUG_SCHEMA para los paths.
+ */
+const USERNAME_RE = /^[a-z0-9-]{2,32}$/;
+
+const USERNAME_ERROR =
+  "Username/handle inválido: debe matchear [a-z0-9-]{2,32} (sin '.', '..' ni '/'). / Invalid username/handle.";
+
 /** Username del owner (para defaultear/acotar `user` en las tools). */
-export const USER_SCHEMA = z.string().min(1).max(64);
+export const USER_SCHEMA = z
+  .string()
+  .min(2)
+  .max(32)
+  .regex(USERNAME_RE, USERNAME_ERROR);
+
+/**
+ * Handle de un org/equipo. Misma regla canónica que un username: el backend
+ * valida el handle con `isValidUsername` (ver `handlers/teams.ts`, FIX 4).
+ * Cada tool le agrega su `.describe(...)` encima.
+ */
+export const TEAM_HANDLE_SCHEMA = USER_SCHEMA;
