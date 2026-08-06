@@ -56,9 +56,8 @@ export const PREFIX_SCHEMA = z
 
 /**
  * Texto libre acotado (NO es un slug/path — no se concatena a ninguna URL de
- * recurso). Se usa para el `q` de búsqueda full-text y el `filename` informativo
- * del upload. Mantiene el shape laxo previo para no romper búsquedas con espacios,
- * acentos, etc.
+ * recurso). Se usa para el `q` de búsqueda full-text. Mantiene el shape laxo previo
+ * para no romper búsquedas con espacios, acentos, etc.
  */
 export const FREE_TEXT_SCHEMA = z.string().min(1).max(200);
 

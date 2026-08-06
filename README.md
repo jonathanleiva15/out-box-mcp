@@ -91,7 +91,11 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 
 ## Tools disponibles (59)
 
-59 tools en total: **29 read**, **17 write**, **3 comment/owner**, **3 sensible**, **7 destructivo**.
+59 tools en total: **29 read**, **17 write**, **3 comment/owner**, **2 sensible**, **8 destructivo**.
+
+Las 8 marcadas `destructivo` son exactamente las que llevan `destructiveHint: true` en sus
+annotations MCP — los clientes que gatean confirmación por esa annotation van a pedir OK antes
+de ejecutarlas. `outbox_rotate_key` entra ahí: revoca la key vieja de forma irreversible.
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -145,8 +149,8 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `outbox_accept_suggestion` | Aceptar una sugerencia (publica versión nueva) | owner |
 | `outbox_discard_suggestion` | Descartar una sugerencia o comentario | owner |
 | `outbox_gen_agent_key` | Emitir agent key folder-scoped (delegación) | ⚠️ sensible |
-| `outbox_rotate_key` | Rotar una API key (revoca la vieja, emite nueva; plaintext 1 vez) | ⚠️ sensible |
 | `outbox_gen_team_key` | Emitir company key del equipo (owner-only; plaintext 1 vez) | ⚠️ sensible |
+| `outbox_rotate_key` | Rotar una API key (revoca la vieja, emite nueva; plaintext 1 vez) | ⚠️ destructivo |
 | `outbox_rollback` | Revertir a una versión | ⚠️ destructivo |
 | `outbox_squash` | Compactar el historial de versiones | ⚠️ destructivo |
 | `outbox_delete` | Eliminar una página | ⚠️ destructivo |

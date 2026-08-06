@@ -51,8 +51,12 @@ Categorías (la anotación de cada tool en `index.ts` es la fuente de verdad):
 - **write** — publish, append, visibility, shares, grants, webhooks, schedules, teams.
 - **comment / owner** — flujo de sugerencias agents-first: el agente propone un cambio de
   texto (anchor + replacement) y el owner lo acepta → versión nueva atribuida.
-- **⚠️ sensible** — emisión/rotación de API keys (plaintext se muestra 1 sola vez).
-- **⚠️ destructivo** — delete/rollback/squash/remove-member.
+- **⚠️ sensible** — emisión de API keys (plaintext se muestra 1 sola vez), sin
+  `destructiveHint`.
+- **⚠️ destructivo** — todo lo que lleva `destructiveHint: true`:
+  delete/rollback/squash/remove-member y `outbox_rotate_key` (revoca la key vieja).
+  La categoría del README debe coincidir 1:1 con esa annotation:
+  `grep -c 'destructiveHint: true' src/index.ts`.
 
 ## Convención: encoding y validación de slugs/prefixes
 
@@ -71,7 +75,7 @@ Regla dura del repo (rompió prod dos veces antes de fijarse):
   `TEAM_HANDLE_SCHEMA` (regex username verbatim del backend; el charset sin `.` bloquea
   dot-segments que sobreviven a `encodeURIComponent` y reescribirían segmentos como
   `/api/teams/:handle/members/:user`). `FREE_TEXT_SCHEMA` es solo para texto que NO se
-  concatena a URLs (`q` de búsqueda, `filename` informativo). No declares
+  concatena a URLs (hoy: el `q` de búsqueda). No declares
   `z.string().min(1).max(200)` inline para un slug/user: usá el schema compartido y
   agregale tu `.describe(...)` encima.
 - Si el backend cambia sus regex (`out-box/worker/src/lib/slug.ts`,

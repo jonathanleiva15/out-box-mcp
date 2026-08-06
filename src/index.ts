@@ -1589,14 +1589,15 @@ server.registerTool(
         .max(60)
         .regex(/^image\//, "Debe ser un MIME de imagen (image/png, image/jpeg, image/webp, image/gif, image/svg+xml)")
         .describe("MIME de la imagen (ej. 'image/png', 'image/jpeg', 'image/webp')"),
-      filename: FREE_TEXT_SCHEMA.optional().describe("Nombre de archivo sugerido (opcional, informativo)"),
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },
   async ({ data, contentType }) => {
     try {
-      // El back deriva todo del contenido (hash + magic bytes); `filename` es solo
-      // informativo y el path raw-body del worker lo ignora. Ver uploadImageBytes.
+      // El back deriva todo del contenido (hash + magic bytes) y el path raw-body del
+      // worker no acepta metadata extra: por eso NO hay `filename` en el schema — sería
+      // un parámetro que el modelo puede mandar y que no viaja a ningún lado.
+      // Ver uploadImageBytes.
       const bytes = new Uint8Array(Buffer.from(data, "base64"));
       return ok(await uploadImageBytes(bytes, contentType));
     } catch (e) {
