@@ -2234,6 +2234,38 @@ export function registerOutboxTools(
     },
   );
 
+  registerTool(
+    "outbox_set_page_password",
+    {
+      title: "Outbox: poner o sacar la contraseña de una página",
+      description:
+        "Pone una contraseña a una página (PUT /api/u/:user/:slug/password): quien la visite tiene que escribirla para " +
+        "verla. `password: null` la saca. Usá una contraseña que eligió el usuario; no inventes una en silencio ni la " +
+        "repitas en lugares públicos. Requiere `publish`. No es destructivo (el contenido no cambia).",
+      inputSchema: {
+        slug: SLUG_SCHEMA.describe("Slug/path de la página (ej. 'clientes/acme/q3')"),
+        password: z
+          .union([z.string().min(4).max(128), z.null()])
+          .describe("Contraseña nueva (mín. 4 caracteres) o null para sacarla"),
+        user: USER_SCHEMA.optional().describe("Namespace dueño (default: el de tu key)"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ slug, password, user }) => {
+      try {
+        const u = await resolveUser(user);
+        return ok(
+          await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/password`, {
+            method: "PUT",
+            body: { password },
+          }),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
   // ── Tools: Empresas v3 (invitaciones, roles, grupos, perfil, señales) ───────────
   // worker/src/handlers/teams-v3.ts + forms.ts + views.ts. El handle sale del path
   // validado; ningún body elige el org.
@@ -2473,34 +2505,6 @@ export function registerOutboxTools(
       try {
         const u = await resolveUser(user);
         return ok(await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/views`));
-      } catch (e) {
-        return fail(e);
-      }
-    },
-  );
-
-  registerTool(
-    "outbox_read_responses",
-    {
-      title: "Outbox: leer respuestas de una página completable",
-      description:
-        "Lee lo que completaron en una página con <meta name=\"outbox-form\" content=\"1\"> (formularios guardados aparte " +
-        "del HTML, versionados). Sin `version`: historial { count, latest, responses:[{n, at, by, fields}] }. Con " +
-        "`version` (número o 'latest'): la versión completa con `data`. Para hacer una página completable: campos con " +
-        "data-campo=\"clave\", (content=\"shared\" para documento colaborativo por link) leer lo último de #outbox-form-data y guardar con " +
-        "parent.postMessage({ob:'form', action:'save', data, name, base}, '*'). Read-only.",
-      inputSchema: {
-        slug: SLUG_SCHEMA,
-        version: z.union([z.literal("latest"), z.number().int().min(1)]).optional(),
-        user: USER_SCHEMA.optional().describe("Namespace dueño (default: el de tu key)"),
-      },
-      annotations: { ...RO, idempotentHint: true },
-    },
-    async ({ slug, version, user }) => {
-      try {
-        const u = await resolveUser(user);
-        const base = `/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/responses`;
-        return ok(await client.req(version === undefined ? base : `${base}/${version}`));
       } catch (e) {
         return fail(e);
       }

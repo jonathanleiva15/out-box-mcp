@@ -77,6 +77,7 @@ export const TOOL_TOOLSET: Record<string, Toolset> = {
   outbox_list_grants: "sharing",
   outbox_revoke_grant: "sharing",
   outbox_access: "sharing",
+  outbox_set_page_password: "sharing",
   // keys
   outbox_list_keys: "keys",
   outbox_gen_agent_key: "keys",
@@ -102,9 +103,8 @@ export const TOOL_TOOLSET: Record<string, Toolset> = {
   outbox_set_team_member: "teams",
   outbox_team_groups: "teams",
   outbox_team_profile: "teams",
-  // Señales de una página publicada (quién la abrió, qué completaron).
+  // Señales de una página publicada: quién la abrió (lo completado se lee con outbox_page_data).
   outbox_page_views: "sharing",
-  outbox_read_responses: "library",
   // automation
   outbox_webhook_events: "automation",
   outbox_create_webhook: "automation",
