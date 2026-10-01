@@ -1,0 +1,62 @@
+name: release
+
+# Publica @out-box/mcp a npm cuando se pushea un tag semver (ej. `v0.2.1`).
+#
+# HUMAN-GATED: el publish SOLO ocurre al crear+pushear un tag `vX.Y.Z`. Requiere:
+#   1. El secret `NPM_TOKEN` en el repo (Settings → Secrets → Actions) — un
+#      automation token de npm con permiso de publish sobre el scope `@out-box`.
+#   2. Que el scope/org `@out-box` exista en npm y Jonathan sea miembro (2FA).
+#
+# Publica con procedencia (npm provenance / OIDC): firma criptográficamente el
+# origen del paquete (repo + commit + workflow), clave en una tool agents-first
+# que corre con la API key del usuario. Provenance exige: repo público, runner
+# hosteado por GitHub, `id-token: write`, y npm >= 9.5 (Node 20 trae npm 10).
+#
+# El patrón de tag `v[0-9]+.[0-9]+.[0-9]+` cubre `v0.2.x` y adelante (no se
+# hardcodea la minor). Para publicar: alineá `package.json`/`src/constants.ts`,
+# taggeá `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: read
+  id-token: write # requerido por `npm publish --provenance` (OIDC)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verificar que el tag coincide con package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::El tag ($TAG) no coincide con package.json ($PKG). Alineá la versión antes de taggear."
+            exit 1
+          fi
+          echo "Tag y package.json coinciden: $PKG"
+
+      - name: Install (npm ci)
+        run: npm ci
+
+      - name: Test (build + node --test)
+        run: npm test
+
+      # `prepublishOnly` (clean + test) reconstruye dist/ limpio antes de empaquetar,
+      # así la procedencia se firma sobre el build reproducible del tag.
+      - name: Publish (provenance + public)
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

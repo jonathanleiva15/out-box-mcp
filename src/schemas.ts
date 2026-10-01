@@ -2,9 +2,11 @@
  * Esquemas Zod compartidos del Outbox MCP server.
  *
  * Constraints reusadas verbatim por muchas tools (slug/path, prefix de carpeta,
- * recurso a compartir, username del owner). Antes vivían inline en cada una de las
- * 54 tools (ej. `z.string().min(1).max(200)` repetido 28 veces), lo que abría la
- * puerta a que una tool quedara con un límite distinto por accidente. Centralizar
+ * recurso a compartir, username del owner, ids/tokens hex). Antes vivían inline en
+ * cada tool (ej. `z.string().min(1).max(200)` repetido decenas de veces), lo que
+ * abría la puerta a que una tool quedara con un límite distinto por accidente
+ * (el conteo real de tools se deriva del código: `grep -c registerTool src/index.ts`,
+ * no se hardcodea acá). Centralizar
  * acá fija una sola fuente de verdad; cada tool sigue agregando su `.describe(...)`
  * (y `.optional()` cuando corresponda) sobre la base, así el shape de `inputSchema`
  * no cambia.
@@ -89,3 +91,37 @@ export const USER_SCHEMA = z
  * Cada tool le agrega su `.describe(...)` encima.
  */
 export const TEAM_HANDLE_SCHEMA = USER_SCHEMA;
+
+/**
+ * IDs/tokens hexadecimales que el backend genera y que el MCP recibe de vuelta
+ * (de un list/create) para revocar/borrar un recurso. Se validan con el MISMO
+ * formato exacto que emite el worker, así el cliente rechaza de entrada cualquier
+ * valor que no pueda existir; y para los que viajan en la URL, el charset hex
+ * (sin '/', '.', '%') cierra path-traversal de raíz igual que SLUG_SCHEMA.
+ *
+ * Formato copiado VERBATIM del backend:
+ *   - share token → `out-box/worker/src/lib/share.ts` (16 bytes random → 32 hex).
+ *   - grant id    → `out-box/worker/src/handlers/grants.ts` (regex `^[a-f0-9]{16}$`,
+ *                   8 bytes random).
+ *   - key id      → `shortKeyId(hash) = hash.slice(0, 8)`
+ *                   (`out-box/worker/src/lib/hash.ts`) → 8 hex (prefijo del hash).
+ * Si el backend cambia estos formatos, re-copiar acá (misma disciplina que las
+ * regex de slug/username).
+ */
+function hexIdSchema(hexLen: number, label: string): z.ZodString {
+  return z
+    .string()
+    .regex(
+      new RegExp(`^[a-f0-9]{${hexLen}}$`),
+      `${label} inválido: debe ser ${hexLen} caracteres hex [a-f0-9]. / Invalid ${label}.`,
+    );
+}
+
+/** Share token (link público anónimo): 32 chars hex. */
+export const SHARE_TOKEN_SCHEMA = hexIdSchema(32, "share token");
+
+/** Grant id user-to-user: 16 chars hex. */
+export const GRANT_ID_SCHEMA = hexIdSchema(16, "grant id");
+
+/** shortKeyId de una API key: 8 chars hex (prefijo del hash de la key). */
+export const KEY_ID_SCHEMA = hexIdSchema(8, "key id");

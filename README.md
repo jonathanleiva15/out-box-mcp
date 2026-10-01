@@ -89,13 +89,15 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `OUTBOX_API_BASE` | `https://api.out-box.dev` | Base de la API (mutaciones, listados, gestión). |
 | `OUTBOX_SITE_BASE` | `https://out-box.dev` | Base del sitio público para leer el HTML servido (`SITE_BASE/<user>/<slug>`, sin `/u/`). |
 
-## Tools disponibles (59)
+## Tools disponibles (62)
 
-59 tools en total: **29 read**, **17 write**, **3 comment/owner**, **2 sensible**, **8 destructivo**.
+62 tools en total: **29 read**, **17 write**, **3 comment/owner**, **2 sensible**, **11 destructivo**.
 
-Las 8 marcadas `destructivo` son exactamente las que llevan `destructiveHint: true` en sus
+Las 11 marcadas `destructivo` son exactamente las que llevan `destructiveHint: true` en sus
 annotations MCP — los clientes que gatean confirmación por esa annotation van a pedir OK antes
-de ejecutarlas. `outbox_rotate_key` entra ahí: revoca la key vieja de forma irreversible.
+de ejecutarlas. Ahí entran `outbox_rotate_key` (revoca la key vieja de forma irreversible) y las
+tres tools de revocación (`outbox_revoke_share`, `outbox_revoke_grant`, `outbox_revoke_key`): cierran
+la simetría con las tools de creación (crear ↔ listar ↔ revocar) para share links, grants y API keys.
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -151,6 +153,9 @@ de ejecutarlas. `outbox_rotate_key` entra ahí: revoca la key vieja de forma irr
 | `outbox_gen_agent_key` | Emitir agent key folder-scoped (delegación) | ⚠️ sensible |
 | `outbox_gen_team_key` | Emitir company key del equipo (owner-only; plaintext 1 vez) | ⚠️ sensible |
 | `outbox_rotate_key` | Rotar una API key (revoca la vieja, emite nueva; plaintext 1 vez) | ⚠️ destructivo |
+| `outbox_revoke_key` | Revocar una API key (solo revoca, sin reemplazo; scope `admin:self`) | ⚠️ destructivo |
+| `outbox_revoke_share` | Revocar un share link (el link deja de funcionar; scope `admin:self`) | ⚠️ destructivo |
+| `outbox_revoke_grant` | Revocar un grant user-to-user (el recipient pierde acceso) | ⚠️ destructivo |
 | `outbox_rollback` | Revertir a una versión | ⚠️ destructivo |
 | `outbox_squash` | Compactar el historial de versiones | ⚠️ destructivo |
 | `outbox_delete` | Eliminar una página | ⚠️ destructivo |

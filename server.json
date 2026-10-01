@@ -1,0 +1,53 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "dev.out-box/mcp",
+  "description": "Publicá y gestioná HTMLs en tu biblioteca agents-first de Outbox desde un cliente MCP.",
+  "status": "active",
+  "repository": {
+    "url": "https://github.com/jonathanleiva15/out-box-mcp",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "website_url": "https://out-box.dev",
+  "packages": [
+    {
+      "registry_type": "npm",
+      "registry_base_url": "https://registry.npmjs.org",
+      "identifier": "@out-box/mcp",
+      "version": "0.2.0",
+      "runtime_hint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environment_variables": [
+        {
+          "name": "OUTBOX_API_KEY",
+          "description": "API key de Outbox (Bearer `outbox_*`). Requerida salvo que exista ~/.outboxrc del CLI.",
+          "is_required": true,
+          "is_secret": true
+        },
+        {
+          "name": "OUTBOX_USER",
+          "description": "Username del owner para defaultear el arg `user` sin pegarle a /api/me (opcional).",
+          "is_required": false
+        },
+        {
+          "name": "OUTBOX_RC",
+          "description": "Path alternativo al archivo de credencial del CLI (default ~/.outboxrc).",
+          "is_required": false,
+          "format": "filepath"
+        },
+        {
+          "name": "OUTBOX_API_BASE",
+          "description": "Base de la API (mutaciones/listados). Default https://api.out-box.dev.",
+          "is_required": false
+        },
+        {
+          "name": "OUTBOX_SITE_BASE",
+          "description": "Base del sitio público para leer el HTML servido. Default https://out-box.dev.",
+          "is_required": false
+        }
+      ]
+    }
+  ]
+}

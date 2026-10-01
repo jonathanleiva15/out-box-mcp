@@ -10,6 +10,23 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 > (404, verificado 2026-07-18). Los ítems fechados 2026-07-18 están además **sin commitear**.
 
 ### Added
+- **2026-08-26 (sin commitear)** — **Simetría de revocación (gap de seguridad)**: 3 tools nuevas
+  `outbox_revoke_share` (DELETE `/api/share/:token`), `outbox_revoke_grant` (DELETE `/api/grants/:id`)
+  y `outbox_revoke_key` (POST `/admin/revoke` `{ keyId }`), todas `destructiveHint: true`. Cierran la
+  asimetría: antes el MCP podía ABRIR accesos (crear share/grant/key) pero no CERRARLOS. Ids validados
+  con schemas hex compartidos nuevos (`SHARE_TOKEN_SCHEMA` 32 hex, `GRANT_ID_SCHEMA` 16 hex,
+  `KEY_ID_SCHEMA` 8 hex = `shortKeyId`), copiados verbatim del formato del backend. Total: **62 tools**
+  (era 59), **11 destructivas** (era 8). Tests 11/11 + tsc limpio.
+- **2026-08-26 (sin commitear)** — **Release workflow npm** (`.github/workflows/release.yml`): publica
+  `@out-box/mcp` con `npm publish --provenance --access public` al pushear un tag `v0.2.*` (corre
+  `npm ci` + `npm test` antes; `prepublishOnly` re-valida). Acciones de terceros pineadas a SHA.
+  `publishConfig.provenance: true` en `package.json`. Requiere `NPM_TOKEN` en secrets + el scope
+  `@out-box` en npm (human-gated).
+- **2026-08-26 (sin commitear)** — `server.json` (manifiesto del MCP Registry oficial,
+  `registry.modelcontextprotocol.io`) con namespace `dev.out-box/mcp` verificable por DNS TXT sobre
+  `out-box.dev`. Listo para `mcp-publisher` (human-gated, NO publicado).
+- **2026-08-26 (sin commitear)** — Archivo `LICENSE` (MIT, Jonathan Leiva); `package.json` ya declaraba
+  MIT sin el archivo.
 - **2026-07-18 (sin commitear)** — Primeros tests del repo: `test/paths.test.mjs` con `node:test`
   (sin infra extra). `npm run test` = `tsc` + `node --test` contra `dist/` (se testea lo que se
   shipea). Cubren `encodeSlugPath` per-segmento y los schemas anti-traversal
@@ -27,6 +44,10 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
   `grep -c registerTool src/index.ts`).
 
 ### Changed
+- **2026-08-26 (sin commitear)** — Schemas inline endurecidos con los compartidos: `owner` de
+  `outbox_publish` → `TEAM_HANDLE_SCHEMA`; `fromUser` de `outbox_instantiate_agent` → `USER_SCHEMA`
+  (antes `z.string().min(1).max(64)` inline, contra la regla de `AGENTS.md`). Rechazan dot-segments
+  igual que el resto de user/handle. Test dedicado agregado.
 - **2026-07-18 (sin commitear)** — Extracción de `src/paths.ts`: `encodeSlugPath` (encode
   per-segmento) pasa a ser LA implementación compartida — antes estaba duplicada en `index.ts` y
   reimplementada inline en `services/client.ts`.

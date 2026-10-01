@@ -14,7 +14,16 @@ import { z } from "zod";
 
 import { API_BASE, CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION, SITE_BASE, USER_AGENT } from "./constants.js";
 import { loadConfig } from "./config.js";
-import { SLUG_SCHEMA, PREFIX_SCHEMA, USER_SCHEMA, TEAM_HANDLE_SCHEMA, FREE_TEXT_SCHEMA } from "./schemas.js";
+import {
+  SLUG_SCHEMA,
+  PREFIX_SCHEMA,
+  USER_SCHEMA,
+  TEAM_HANDLE_SCHEMA,
+  FREE_TEXT_SCHEMA,
+  SHARE_TOKEN_SCHEMA,
+  GRANT_ID_SCHEMA,
+  KEY_ID_SCHEMA,
+} from "./schemas.js";
 import { encodeSlugPath } from "./paths.js";
 import { OutboxClient, OutboxApiError, formatError, type OutboxErrorBody } from "./services/client.js";
 
@@ -760,6 +769,32 @@ server.registerTool(
   },
 );
 
+server.registerTool(
+  "outbox_revoke_share",
+  {
+    title: "Outbox: revocar un share link",
+    description:
+      "Revoca un share token (link público anónimo) por su token (DELETE /api/share/:token). El link deja de " +
+      "funcionar INMEDIATAMENTE. Cierra el par con outbox_create_share / outbox_list_shares (tomá el token de ahí). " +
+      "DESTRUCTIVO e irreversible: el token no se reactiva — para volver a compartir generá uno nuevo. Pedí " +
+      "confirmación al usuario antes de usarla. Requiere scope `admin:self`. Idempotente (revocar dos veces → 404 " +
+      "token_not_found; el estado final es el mismo: no compartido).",
+    inputSchema: {
+      token: SHARE_TOKEN_SCHEMA.describe("Token del share a revocar (de outbox_list_shares / outbox_create_share)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ token }) => {
+    try {
+      // token validado a [a-f0-9]{32}: encodeURIComponent es no-op, pero lo dejamos
+      // por consistencia con el resto de ids en la URL (defensa en profundidad).
+      return ok(await client.req(`/api/share/${encodeURIComponent(token)}`, { method: "DELETE" }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
 // ── Tools: publicación (HTML crudo / template) ──────────────────────────────────
 // B8 (BREAKING): `model` es OBLIGATORIO en ambos publishes — el back devuelve
 // 400 missing_model si falta. Es el id del modelo que generó el contenido
@@ -781,15 +816,10 @@ server.registerTool(
       "Args clave: slug, model (req) + html O markdown. Opcionales: title, visibility, tags, summary, description, contentType, ttl, inheritFolderVisibility.",
     inputSchema: {
       slug: SLUG_SCHEMA.describe("Slug/path de la página. Acepta paths jerárquicos estilo Confluence (ej. 'briefings/hoy', 'clientes/solera/q3')"),
-      owner: z
-        .string()
-        .min(1)
-        .max(64)
-        .optional()
-        .describe(
-          "Teams F1: handle de un ORG del que sos MIEMBRO → publica bajo el namespace del equipo (publish-as-team). " +
-            "Omitir = publica bajo tu namespace propio. Para company keys (key del org) NO hace falta: ya publican bajo el org.",
-        ),
+      owner: TEAM_HANDLE_SCHEMA.optional().describe(
+        "Teams F1: handle de un ORG del que sos MIEMBRO → publica bajo el namespace del equipo (publish-as-team). " +
+          "Omitir = publica bajo tu namespace propio. Para company keys (key del org) NO hace falta: ya publican bajo el org.",
+      ),
       html: z.string().min(1).optional().describe("HTML crudo de la página (se sirve tal cual; máx 5MB). Excluyente con `markdown`."),
       markdown: z.string().min(1).optional().describe("Fuente Markdown (camino agents-first): el back la renderiza a HTML seguro (escape + allowlist, sin raw-HTML ejecutable) y la envuelve en tu template o el shell de marca. Guarda el .md fuente. Excluyente con `html`."),
       model: MODEL,
@@ -921,6 +951,29 @@ server.registerTool(
   async ({ incoming }) => {
     try {
       return ok(await client.req("/api/grants", { query: { incoming: incoming ? 1 : undefined } }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_revoke_grant",
+  {
+    title: "Outbox: revocar un grant",
+    description:
+      "Revoca un grant user-to-user por su id (DELETE /api/grants/:id). El recipient pierde el acceso " +
+      "INMEDIATAMENTE. Cierra el par con outbox_create_grant / outbox_list_grants (tomá el id de outbox_list_grants). " +
+      "DESTRUCTIVO e irreversible: para volver a dar acceso creá un grant nuevo. Pedí confirmación al usuario antes " +
+      "de usarla. Idempotente (revocar dos veces → 404 grant_not_found; el estado final es el mismo).",
+    inputSchema: {
+      grantId: GRANT_ID_SCHEMA.describe("Id del grant a revocar (de outbox_list_grants)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ grantId }) => {
+    try {
+      return ok(await client.req(`/api/grants/${encodeURIComponent(grantId)}`, { method: "DELETE" }));
     } catch (e) {
       return fail(e);
     }
@@ -1543,11 +1596,9 @@ server.registerTool(
       "acotar acceso a una carpeta — confirmá con el usuario antes de instanciar. La respuesta puede traer un secreto UNA " +
       "SOLA VEZ (guardalo al instante).",
     inputSchema: {
-      fromUser: z
-        .string()
-        .min(1)
-        .max(64)
-        .describe("Username DUEÑO del registry de donde se clona el agente (el back lo exige)"),
+      fromUser: USER_SCHEMA.describe(
+        "Username DUEÑO del registry de donde se clona el agente (el back lo exige)",
+      ),
       agentId: z.string().min(1).max(64).describe("Id del agente del registry (de outbox_agents_registry)"),
       inputs: z
         .record(z.unknown())
@@ -1834,6 +1885,33 @@ server.registerTool(
   async ({ keyId, label }) => {
     try {
       return ok(await client.req("/api/keys/rotate", { method: "POST", body: { keyId, label } }));
+    } catch (e) {
+      return fail(e);
+    }
+  },
+);
+
+server.registerTool(
+  "outbox_revoke_key",
+  {
+    title: "Outbox: revocar una API key",
+    description:
+      "Revoca una API key por su keyId (POST /admin/revoke, body { keyId }). La key deja de autenticar " +
+      "INMEDIATAMENTE. A diferencia de outbox_rotate_key (que revoca la vieja Y emite una nueva con los mismos " +
+      "scopes/label), esto SOLO revoca: NO emite reemplazo, así que todo servicio que usaba esa key queda sin " +
+      "acceso hasta que emitas otra. DESTRUCTIVO e irreversible — pedí confirmación al usuario antes de usarla. " +
+      "Requiere scope `admin:self`. CUIDADO: no revoques la key con la que estás autenticado si es tu única vía de " +
+      "acceso (quedarías sin credencial). Idempotente (revocar una key ya revocada la deja revocada igual).",
+    inputSchema: {
+      keyId: KEY_ID_SCHEMA.describe("keyId (shortKeyId, 8 chars hex) de la key a revocar (de outbox_list_keys)"),
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+  },
+  async ({ keyId }) => {
+    try {
+      // keyId viaja en el BODY (no en la URL), pero igual se valida a [a-f0-9]{8}
+      // (shortKeyId real del backend) para rechazar de entrada lo que no puede existir.
+      return ok(await client.req("/admin/revoke", { method: "POST", body: { keyId } }));
     } catch (e) {
       return fail(e);
     }
