@@ -1,0 +1,137 @@
+name: release
+
+# Publica @out-box/mcp a npm cuando se pushea un tag semver (ej. `v0.2.1`).
+#
+# HUMAN-GATED: el publish SOLO ocurre al crear+pushear un tag `vX.Y.Z`. Requiere:
+#   1. El secret `NPM_TOKEN` en el repo (Settings → Secrets → Actions) — un
+#      automation token de npm con permiso de publish sobre el scope `@out-box`.
+#   2. Que el scope/org `@out-box` exista en npm y Jonathan sea miembro (2FA).
+#
+# Procedencia (npm provenance / OIDC): firma criptográficamente el origen del
+# paquete (repo + commit + workflow), clave en una tool agents-first que corre
+# con la API key del usuario. npm SOLO la genera desde repos PÚBLICOS: con el repo
+# privado `--provenance` hacía fallar el publish (QA-06). Por eso el flag se pasa
+# solo si `github.event.repository.private` es false. Hacer público el repo (y así
+# publicar con provenance) es una decisión humana pendiente.
+#
+# El patrón de tag `v[0-9]+.[0-9]+.[0-9]+` cubre `v0.2.x` y adelante (no se
+# hardcodea la minor). Para publicar: alineá `package.json`, `src/constants.ts`
+# (SERVER_VERSION) y `server.json` (version + packages[].version) y taggeá
+# `git tag vX.Y.Z && git push origin vX.Y.Z`. El step de verificación y el test
+# test/pasada3-mcp.test.mjs fallan si alguno quedó desalineado.
+#
+# Seguridad de la cadena de suministro (seg p2): el NPM_TOKEN de publish NO puede
+# quedar al alcance del árbol de devDependencies. Antes `npm publish` corría
+# `prepublishOnly` (rimraf + tsc + node --test) DENTRO del step con NODE_AUTH_TOKEN y
+# el .npmrc de setup-node, y `id-token: write` estaba abierto a nivel workflow (el
+# `npm ci`, con install scripts de terceros, podía pedir tokens OIDC). Ahora:
+#   - `build`: permisos contents:read, SIN secrets ni OIDC, checkout sin credenciales
+#     persistidas, setup-node SIN registry-url (no hay .npmrc con token). Hace npm ci,
+#     clean + test (lo que hacía prepublishOnly), `npm pack` y sube el .tgz.
+#   - `publish`: el ÚNICO job con id-token:write y NPM_TOKEN. No hace checkout ni
+#     npm ci: baja el .tgz y corre `npm publish <tgz> --ignore-scripts`. Ningún código
+#     de dependencias corre con el token.
+# test/seg-p2-release.test.mjs falla si se vuelve al patrón anterior.
+# Pendiente humano: migrar a npm Trusted Publishing (OIDC) y revocar el NPM_TOKEN.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      # Sin registry-url: este job no escribe un .npmrc con token (no hay token).
+      - name: Setup Node
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '22'
+
+      - name: Verificar que el tag coincide con package.json, SERVER_VERSION y server.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::El tag ($TAG) no coincide con package.json ($PKG). Alineá la versión antes de taggear."
+            exit 1
+          fi
+          # serverInfo.version / User-Agent (src/constants.ts) y el MCP Registry
+          # (server.json) tienen que publicarse con la MISMA versión que npm.
+          SRV="$(sed -n 's/^export const SERVER_VERSION = "\(.*\)";$/\1/p' src/constants.ts)"
+          REG="$(node -p "require('./server.json').version")"
+          REGPKG="$(node -p "require('./server.json').packages.map((p) => p.version).join(' ')")"
+          for V in "$SRV" "$REG" $REGPKG; do
+            if [ "$V" != "$PKG" ]; then
+              echo "::error::Versiones desalineadas: package.json=$PKG, SERVER_VERSION=$SRV, server.json=$REG, server.json packages=$REGPKG."
+              exit 1
+            fi
+          done
+          echo "Tag, package.json, SERVER_VERSION y server.json coinciden: $PKG"
+
+      - name: Install (npm ci)
+        run: npm ci
+
+      # Lo que hacía prepublishOnly: dist/ limpio + build + tests, sobre el tag.
+      - name: Clean + test (build + node --test)
+        run: |
+          npm run clean
+          npm test
+
+      - name: Empaquetar (npm pack)
+        id: pack
+        run: |
+          set -euo pipefail
+          mkdir -p pkg
+          TARBALL="$(npm pack --pack-destination pkg --json | node -e 'let s="";process.stdin.on("data",(c)=>s+=c).on("end",()=>console.log(JSON.parse(s)[0].filename))')"
+          test -f "pkg/$TARBALL"
+          (cd pkg && sha256sum -- "$TARBALL")
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
+      - name: Subir el paquete (artifact del run)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-package
+          path: pkg/
+          if-no-files-found: error
+          retention-days: 7
+
+  # Único job con id-token:write y NPM_TOKEN. No hace checkout ni npm ci: solo baja
+  # el .tgz del build y lo publica sin lifecycle scripts.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write # requerido por `npm publish --provenance` (OIDC)
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Bajar el paquete
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: npm-package
+          path: pkg
+
+      - name: Publish (public; provenance solo si el repo es público)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TARBALL: ${{ needs.build.outputs.tarball }}
+        run: npm publish "./pkg/$TARBALL" --access public --ignore-scripts ${{ !github.event.repository.private && '--provenance' || '' }}

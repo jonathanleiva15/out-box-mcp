@@ -1,6 +1,7 @@
 {
   "name": "@out-box/mcp",
   "version": "0.2.0",
+  "mcpName": "dev.out-box/mcp",
   "description": "MCP server oficial de Outbox (out-box.dev) — publicar, leer y gestionar HTMLs en tu biblioteca agents-first desde cualquier cliente MCP.",
   "type": "module",
   "main": "dist/index.js",
@@ -9,7 +10,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
@@ -31,7 +33,7 @@
     "url": "https://github.com/jonathanleiva15/out-box-mcp/issues"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "keywords": [
     "mcp",
@@ -44,10 +46,11 @@
   "author": "Jonathan Leiva <jonathanleiva15@gmail.com> (https://out-box.dev)",
   "homepage": "https://out-box.dev",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.1",
-    "zod": "^3.23.8"
+    "@modelcontextprotocol/server": "^2.2.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.2.0",
     "@types/node": "^22.10.0",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.2",
