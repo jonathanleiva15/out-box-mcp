@@ -1678,15 +1678,23 @@ export function registerOutboxTools(
         resource: SLUG_SCHEMA.describe("Slug/path del recurso a compartir"),
         resourceType: z.enum(["post", "folder"]).default("post").describe("Tipo de recurso"),
         expiresInDays: z.number().int().min(1).max(365).nullable().optional().describe("Días hasta expirar (null = sin expiración)"),
+        recipient: z
+          .string()
+          .min(1)
+          .max(80)
+          .optional()
+          .describe(
+            "Destinatario del link (ej. 'Laura · Acme'). Un link por persona: cada apertura queda a su nombre en outbox_page_views, aunque no tenga cuenta",
+          ),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
-    async ({ resource, resourceType, expiresInDays }) => {
+    async ({ resource, resourceType, expiresInDays, recipient }) => {
       try {
         return ok(
           await client.req("/api/share", {
             method: "POST",
-            body: { resource, resourceType, expiresInDays },
+            body: { resource, resourceType, expiresInDays, recipient },
           }),
         );
       } catch (e) {
@@ -2068,6 +2076,7 @@ export function registerOutboxTools(
         "OWNER-ONLY: solo el owner del org puede sumar miembros. El nuevo miembro entra siempre con rol " +
         "'member' (el ownership se transfiere aparte, no se asigna al sumar). " +
         "Con MFA activo pide step-up: si responde step_up_required, pedile al usuario el código TOTP y reintentá con mfaCode. " +
+        "Preferí outbox_invite_team_member: la persona acepta en vez de quedar adentro sin consentimiento. " +
         "Respuesta { ok, user, role }. No es destructivo, pero da acceso al equipo: confirmá con el usuario.",
       inputSchema: {
         handle: TEAM_HANDLE,
@@ -2225,6 +2234,279 @@ export function registerOutboxTools(
     },
   );
 
+  // ── Tools: Empresas v3 (invitaciones, roles, grupos, perfil, señales) ───────────
+  // worker/src/handlers/teams-v3.ts + forms.ts + views.ts. El handle sale del path
+  // validado; ningún body elige el org.
+
+  const ROLE = z.enum(["admin", "member"]);
+  const GROUP_ID = z
+    .string()
+    .regex(/^[a-z0-9-]{1,40}$/, "id de grupo inválido / invalid group id: [a-z0-9-]{1,40}")
+    .describe("Id del grupo (lo devuelve outbox_team_groups)");
+
+  registerTool(
+    "outbox_invite_team_member",
+    {
+      title: "Outbox: invitar a alguien al equipo (owner/admin)",
+      description:
+        "Invita a un usuario de Outbox a tu equipo/org (POST /api/teams/:handle/invites). La persona ACEPTA o rechaza " +
+        "(outbox_respond_team_invite); hasta entonces no es miembro. Vence a los 14 días. Solo el owner invita como 'admin'. " +
+        "Con MFA activo pide step-up: si responde step_up_required, pedile al usuario el código TOTP y reintentá con mfaCode. " +
+        "Respuesta 202 { invited, invite }. No es destructivo.",
+      inputSchema: {
+        handle: TEAM_HANDLE,
+        user: USER_SCHEMA.describe("Username a invitar (debe existir)"),
+        role: ROLE.default("member").describe("Rol al aceptar: member (default) o admin (solo owner)"),
+        // Seguridad pasada 1: invitar da acceso al namespace del org → step-up MFA.
+        mfaCode: MFA_CODE_SCHEMA.optional(),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ handle, user, role, mfaCode }) => {
+      try {
+        return ok(
+          await client.req(`/api/teams/${encodeURIComponent(handle)}/invites`, {
+            method: "POST",
+            body: { user, role, mfaCode },
+          }),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  registerTool(
+    "outbox_team_invites",
+    {
+      title: "Outbox: invitaciones pendientes",
+      description:
+        "Sin `handle`: las invitaciones a equipos que RECIBISTE (GET /api/teams/invites). Con `handle`: las pendientes " +
+        "de ese org (owner/admin; GET /api/teams/:handle/invites). Cada item { org, user, role, invitedBy, expiresAt }. Read-only.",
+      inputSchema: { handle: TEAM_HANDLE.optional() },
+      annotations: { ...RO, idempotentHint: true },
+    },
+    async ({ handle }) => {
+      try {
+        return ok(
+          await client.req(handle ? `/api/teams/${encodeURIComponent(handle)}/invites` : "/api/teams/invites"),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  registerTool(
+    "outbox_respond_team_invite",
+    {
+      title: "Outbox: aceptar o rechazar una invitación",
+      description:
+        "Acepta o rechaza una invitación a un equipo (POST /api/teams/:handle/invites/accept|decline). Solo la persona " +
+        "invitada, con una key humana (admin:self) o sesión: una agent key no acepta en nombre de su dueño. " +
+        "Confirmá con el usuario antes de aceptar (te suma a una empresa).",
+      inputSchema: {
+        handle: TEAM_HANDLE,
+        action: z.enum(["accept", "decline"]).describe("accept = sumarte; decline = rechazar"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ handle, action }) => {
+      try {
+        return ok(
+          await client.req(`/api/teams/${encodeURIComponent(handle)}/invites/${action}`, { method: "POST" }),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  registerTool(
+    "outbox_leave_team",
+    {
+      title: "Outbox: salir de un equipo",
+      description:
+        "Te saca de un equipo/org (POST /api/teams/:handle/leave): perdés el acceso a su espacio y a sus grupos. " +
+        "El owner no puede irse sin transferir antes. DESTRUCTIVO sobre tu membresía: confirmá con el usuario.",
+      inputSchema: { handle: TEAM_HANDLE },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ handle }) => {
+      try {
+        return ok(await client.req(`/api/teams/${encodeURIComponent(handle)}/leave`, { method: "POST" }));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  registerTool(
+    "outbox_set_team_member",
+    {
+      title: "Outbox: rol o capacidad de un miembro",
+      description:
+        "Cambia el rol (admin | member, solo el owner) y/o la capacidad de gestionar company keys de un miembro " +
+        "(POST /api/teams/:handle/members/:user). Un admin administra roster, grupos, perfil y keys con acceso a todo el " +
+        "org, pero no borra/transfiere ni toca billing. Nombrar admin u otorgar canManageKeys pide step-up MFA (mfaCode). " +
+        "Respuesta { user, role, canManageKeys, revokedKeys }.",
+      inputSchema: {
+        handle: TEAM_HANDLE,
+        user: USER_SCHEMA.describe("Username del miembro"),
+        role: ROLE.optional().describe("Nuevo rol (solo owner)"),
+        canManageKeys: z.boolean().optional().describe("Permitirle emitir/revocar company keys"),
+        // Nombrar admin u otorgar canManageKeys pide step-up MFA (PEN-03).
+        mfaCode: MFA_CODE_SCHEMA.optional(),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ handle, user, role, canManageKeys, mfaCode }) => {
+      try {
+        // POST y no PATCH: el edge de Cloudflare bloquea los PATCH autenticados.
+        return ok(
+          await client.req(`/api/teams/${encodeURIComponent(handle)}/members/${encodeURIComponent(user)}`, {
+            method: "POST",
+            body: { role, canManageKeys, mfaCode },
+          }),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  registerTool(
+    "outbox_team_groups",
+    {
+      title: "Outbox: grupos por proyecto de un equipo",
+      description:
+        "Gestiona los grupos del org: cada grupo da acceso a uno o más proyectos (carpetas) a un subconjunto del equipo. " +
+        "action=list (cualquier miembro), create {name, projects}, update {groupId, name?, projects?}, delete {groupId}, " +
+        "add_member/remove_member {groupId, user} (owner/admin). Ojo: en cuanto el org tiene un grupo, un miembro sin grupo " +
+        "deja de ver lo privado.",
+      inputSchema: {
+        handle: TEAM_HANDLE,
+        action: z.enum(["list", "create", "update", "delete", "add_member", "remove_member"]),
+        groupId: GROUP_ID.optional(),
+        name: z.string().min(1).max(80).optional().describe("Nombre del grupo (create/update)"),
+        projects: z.array(PREFIX_SCHEMA).max(100).optional().describe("Carpetas que habilita (create/update)"),
+        user: USER_SCHEMA.optional().describe("Miembro (add_member/remove_member)"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ handle, action, groupId, name, projects, user }) => {
+      try {
+        const base = `/api/teams/${encodeURIComponent(handle)}/groups`;
+        if (action === "list") return ok(await client.req(base));
+        if (action === "create") {
+          return ok(await client.req(base, { method: "POST", body: { name, projects: projects ?? [] } }));
+        }
+        if (!groupId) return fail(new Error("groupId es obligatorio para esta acción"));
+        const g = `${base}/${encodeURIComponent(groupId)}`;
+        if (action === "update") return ok(await client.req(g, { method: "POST", body: { name, projects } }));
+        if (action === "delete") return ok(await client.req(g, { method: "DELETE" }));
+        if (!user) return fail(new Error("user es obligatorio para add_member/remove_member"));
+        if (action === "add_member") {
+          // Sumar a un grupo NO pide step-up (el worker no lo exige: la persona ya
+          // es miembro del org; solo se acota/amplía a qué proyectos llega).
+          const groupMembers = `${g}/members`;
+          return ok(await client.req(groupMembers, { method: "POST", body: { user } }));
+        }
+        return ok(await client.req(`${g}/members/${encodeURIComponent(user)}`, { method: "DELETE" }));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  registerTool(
+    "outbox_team_profile",
+    {
+      title: "Outbox: perfil público de la empresa",
+      description:
+        "Lee o guarda el perfil público del org (GET|PUT|DELETE /api/teams/:handle/profile): nombre, tagline, color " +
+        "(#rrggbb), links y páginas destacadas. Guardarlo activa la vitrina en out-box.dev/<handle> y su índice para " +
+        "agentes en out-box.dev/<handle>/llms.txt. PUT es reemplazo completo (owner/admin). action=get es read-only.",
+      inputSchema: {
+        handle: TEAM_HANDLE,
+        action: z.enum(["get", "set", "delete"]).default("get"),
+        displayName: z.string().max(80).optional(),
+        tagline: z.string().max(200).optional(),
+        accent: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().describe("Color #rrggbb"),
+        links: z
+          .array(z.object({ label: z.string().max(40), url: z.string().url().max(300) }))
+          .max(6)
+          .optional(),
+        pinned: z.array(SLUG_SCHEMA).max(12).optional().describe("Slugs públicos a destacar, en orden"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ handle, action, displayName, tagline, accent, links, pinned }) => {
+      try {
+        const path = `/api/teams/${encodeURIComponent(handle)}/profile`;
+        if (action === "get") return ok(await client.req(path));
+        if (action === "delete") return ok(await client.req(path, { method: "DELETE" }));
+        return ok(
+          await client.req(path, { method: "PUT", body: { displayName, tagline, accent, links, pinned } }),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  registerTool(
+    "outbox_page_views",
+    {
+      title: "Outbox: quién abrió una página",
+      description:
+        "Aperturas de una página (GET /api/u/:user/:slug/views): total, hoy, lectores identificados (logueados o por link " +
+        "con destinatario, como 'link:Laura · Acme') y la PRIMERA apertura externa (firstViewedAt, firstViewer). Las vistas " +
+        "del equipo no cuentan. Usalo para saber si el cliente abrió la propuesta. Read-only.",
+      inputSchema: {
+        slug: SLUG_SCHEMA,
+        user: USER_SCHEMA.optional().describe("Namespace dueño (default: el de tu key; una company key lee su org)"),
+      },
+      annotations: { ...RO, idempotentHint: true },
+    },
+    async ({ slug, user }) => {
+      try {
+        const u = await resolveUser(user);
+        return ok(await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/views`));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  registerTool(
+    "outbox_read_responses",
+    {
+      title: "Outbox: leer respuestas de una página completable",
+      description:
+        "Lee lo que completaron en una página con <meta name=\"outbox-form\" content=\"1\"> (formularios guardados aparte " +
+        "del HTML, versionados). Sin `version`: historial { count, latest, responses:[{n, at, by, fields}] }. Con " +
+        "`version` (número o 'latest'): la versión completa con `data`. Para hacer una página completable: campos con " +
+        "data-campo=\"clave\", (content=\"shared\" para documento colaborativo por link) leer lo último de #outbox-form-data y guardar con " +
+        "parent.postMessage({ob:'form', action:'save', data, name, base}, '*'). Read-only.",
+      inputSchema: {
+        slug: SLUG_SCHEMA,
+        version: z.union([z.literal("latest"), z.number().int().min(1)]).optional(),
+        user: USER_SCHEMA.optional().describe("Namespace dueño (default: el de tu key)"),
+      },
+      annotations: { ...RO, idempotentHint: true },
+    },
+    async ({ slug, version, user }) => {
+      try {
+        const u = await resolveUser(user);
+        const base = `/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/responses`;
+        return ok(await client.req(version === undefined ? base : `${base}/${version}`));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
   // ── Tools: event webhooks ───────────────────────────────────────────────────────
   /**
    * Catálogo de eventos soportados por el worker (`WEBHOOK_EVENTS`, lib/webhooks.ts).
@@ -2238,6 +2520,10 @@ export function registerOutboxTools(
     "page.published",
     "daily.appended",
     "page.viewed",
+    // Empresas v3: la PRIMERA apertura externa ("el cliente abrió la propuesta") y
+    // una página completable que alguien guardó.
+    "page.first_viewed",
+    "form.submitted",
   ] as const;
 
   registerTool(

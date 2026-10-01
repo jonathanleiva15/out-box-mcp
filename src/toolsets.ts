@@ -94,6 +94,17 @@ export const TOOL_TOOLSET: Record<string, Toolset> = {
   outbox_gen_team_key: "teams",
   outbox_list_team_keys: "teams",
   outbox_revoke_team_key: "teams",
+  // Empresas v3
+  outbox_invite_team_member: "teams",
+  outbox_team_invites: "teams",
+  outbox_respond_team_invite: "teams",
+  outbox_leave_team: "teams",
+  outbox_set_team_member: "teams",
+  outbox_team_groups: "teams",
+  outbox_team_profile: "teams",
+  // Señales de una página publicada (quién la abrió, qué completaron).
+  outbox_page_views: "sharing",
+  outbox_read_responses: "library",
   // automation
   outbox_webhook_events: "automation",
   outbox_create_webhook: "automation",

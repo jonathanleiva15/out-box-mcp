@@ -308,9 +308,18 @@ test("429 rate_limited anti-spam de comments (sin bloque CTA): 429 genérico con
 
 // ── Webhooks ──────────────────────────────────────────────────────────────────
 
-const EXPECTED_EVENTS = ["comment.created", "version.created", "page.published", "daily.appended", "page.viewed"];
+const EXPECTED_EVENTS = [
+  "comment.created",
+  "version.created",
+  "page.published",
+  "daily.appended",
+  "page.viewed",
+  // Empresas v3
+  "page.first_viewed",
+  "form.submitted",
+];
 
-test("outbox_create_webhook acepta los 5 eventos del worker", async () => {
+test("outbox_create_webhook acepta los 7 eventos del worker", async () => {
   const { tools } = await client.listTools();
   const tool = tools.find((t) => t.name === "outbox_create_webhook");
   assert.deepEqual([...tool.inputSchema.properties.events.items.enum].sort(), [...EXPECTED_EVENTS].sort());
