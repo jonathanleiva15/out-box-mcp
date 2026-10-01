@@ -68,7 +68,13 @@ function parseRc(raw: string): { apiKey?: string; user?: string; apiBase?: strin
   return { apiKey, user, apiBase };
 }
 
-export function loadConfig(): OutboxConfig {
+/**
+ * Resuelve la credencial. Devuelve `null` si no hay ninguna (AX-10): el server
+ * arranca igual y cada tool responde un error accionable ("configurá
+ * OUTBOX_API_KEY…") en lugar de morir antes de conectar ("server disconnected"
+ * sin mensaje en el host).
+ */
+export function loadConfig(): OutboxConfig | null {
   const envKey = process.env.OUTBOX_API_KEY?.trim();
   const envUser = process.env.OUTBOX_USER?.trim();
   if (envKey) return { apiKey: envKey, user: envUser || undefined, source: "env" };
@@ -88,8 +94,5 @@ export function loadConfig(): OutboxConfig {
     /* no existe ~/.outboxrc o no se pudo leer */
   }
 
-  throw new Error(
-    "No se encontró credencial de Outbox. Definí la variable de entorno OUTBOX_API_KEY " +
-      "(Bearer `outbox_*`) o iniciá sesión con el CLI (`outbox login`) para dejar la key en ~/.outboxrc.",
-  );
+  return null;
 }

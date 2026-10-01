@@ -1,0 +1,150 @@
+/**
+ * Toolsets del Outbox MCP server (AX-08).
+ *
+ * `tools/list` con las 64 tools pesaba unos 16-19k tokens en hosts sin tool search
+ * (Claude Desktop, Cursor, Agent SDK) y competía en la selección con 63 vecinas. Las
+ * tools se agrupan por toolset y el server registra solo los activos:
+ *
+ *   OUTBOX_TOOLSETS=core,comments          (default)
+ *   OUTBOX_TOOLSETS=all                    (todo)
+ *   OUTBOX_TOOLSETS=core,sharing,keys      (combinación)
+ *
+ * Helper PURO (sin I/O): la clasificación de cada tool vive acá y un test verifica
+ * que TODA tool registrada tenga toolset (una tool nueva sin clasificar hace fallar
+ * el arranque, no queda invisible en silencio).
+ */
+
+export const TOOLSETS = ["core", "comments", "library", "sharing", "keys", "teams", "automation", "apps"] as const;
+export type Toolset = (typeof TOOLSETS)[number];
+
+/** Toolsets activos si OUTBOX_TOOLSETS no está definido. */
+export const DEFAULT_TOOLSETS: readonly Toolset[] = ["core", "comments"];
+
+/** Qué hace cada toolset (se muestra en las instructions del server). */
+export const TOOLSET_SUMMARY: Record<Toolset, string> = {
+  core: "leer, publicar, daily, versiones, visibility, borrador, borrar, subir imágenes, cuenta",
+  comments: "comentarios y sugerencias (leer, comentar, sugerir, aceptar, descartar)",
+  library: "árbol, carpetas, diff, squash, backup, templates, estilo",
+  sharing: "share links, grants user-to-user y quién tiene acceso",
+  keys: "API keys (listar, emitir, rotar, revocar), audit y registry de agentes",
+  teams: "equipos/orgs, miembros y company keys",
+  automation: "event webhooks y schedules (cron → webhook)",
+  apps: "visor interactivo de una página (MCP App: metadata, versiones, comentarios y preview aislado)",
+};
+
+/** Toolset de cada tool. Fuente de verdad de la clasificación. */
+export const TOOL_TOOLSET: Record<string, Toolset> = {
+  // core
+  outbox_me: "core",
+  outbox_usage: "core",
+  outbox_capabilities: "core",
+  outbox_list: "core",
+  outbox_search: "core",
+  outbox_recent: "core",
+  outbox_pull: "core",
+  outbox_export: "core",
+  outbox_versions: "core",
+  outbox_rollback: "core",
+  outbox_publish: "core",
+  outbox_append: "core",
+  outbox_get_blocks: "core",
+  outbox_set_visibility: "core",
+  outbox_go_live: "core",
+  outbox_delete: "core",
+  outbox_upload: "core",
+  // comments
+  outbox_read_comments: "comments",
+  outbox_create_comment: "comments",
+  outbox_create_suggestion: "comments",
+  outbox_accept_suggestion: "comments",
+  outbox_discard_suggestion: "comments",
+  // library
+  outbox_list_tree: "library",
+  outbox_folders: "library",
+  outbox_set_folder: "library",
+  outbox_delete_folder: "library",
+  outbox_diff: "library",
+  outbox_squash: "library",
+  outbox_export_library: "library",
+  outbox_templates: "library",
+  outbox_publish_from_template: "library",
+  outbox_set_style: "library",
+  // sharing
+  outbox_create_share: "sharing",
+  outbox_list_shares: "sharing",
+  outbox_revoke_share: "sharing",
+  outbox_create_grant: "sharing",
+  outbox_list_grants: "sharing",
+  outbox_revoke_grant: "sharing",
+  outbox_access: "sharing",
+  // keys
+  outbox_list_keys: "keys",
+  outbox_gen_agent_key: "keys",
+  outbox_rotate_key: "keys",
+  outbox_revoke_key: "keys",
+  outbox_audit: "keys",
+  outbox_agents_registry: "keys",
+  outbox_instantiate_agent: "keys",
+  // teams
+  outbox_create_team: "teams",
+  outbox_list_teams: "teams",
+  outbox_list_team_members: "teams",
+  outbox_add_team_member: "teams",
+  outbox_remove_team_member: "teams",
+  outbox_gen_team_key: "teams",
+  outbox_list_team_keys: "teams",
+  outbox_revoke_team_key: "teams",
+  // automation
+  outbox_webhook_events: "automation",
+  outbox_create_webhook: "automation",
+  outbox_list_webhooks: "automation",
+  outbox_delete_webhook: "automation",
+  outbox_pause_webhook: "automation",
+  outbox_create_schedule: "automation",
+  outbox_list_schedules: "automation",
+  outbox_delete_schedule: "automation",
+  outbox_pause_schedule: "automation",
+  // apps (Ola 2, MCP Apps). outbox_page_preview es solo-app (_meta.ui.visibility).
+  outbox_show_page: "apps",
+  outbox_page_preview: "apps",
+  // sandbox-platform (src/tools/sandbox-platform.ts): vigía de render y datos de página.
+  outbox_render_status: "library",
+  outbox_page_data: "library",
+};
+
+export interface ParsedToolsets {
+  enabled: Set<Toolset>;
+  /** Nombres pedidos que no existen (se ignoran y se avisan por stderr). */
+  unknown: string[];
+}
+
+/**
+ * Parsea OUTBOX_TOOLSETS (lista separada por coma o espacio, case-insensitive).
+ * Vacío/ausente → DEFAULT_TOOLSETS. `all` → todos. `core` siempre queda activo:
+ * sin él el agente no puede ni leer ni publicar.
+ */
+export function parseToolsets(raw: string | undefined): ParsedToolsets {
+  const unknown: string[] = [];
+  const value = raw?.trim();
+  if (!value) return { enabled: new Set(DEFAULT_TOOLSETS), unknown };
+  const enabled = new Set<Toolset>(["core"]);
+  for (const part of value.split(/[\s,]+/).map((p) => p.trim().toLowerCase()).filter(Boolean)) {
+    if (part === "all") {
+      for (const t of TOOLSETS) enabled.add(t);
+    } else if ((TOOLSETS as readonly string[]).includes(part)) {
+      enabled.add(part as Toolset);
+    } else {
+      unknown.push(part);
+    }
+  }
+  return { enabled, unknown };
+}
+
+/** ¿La tool está en un toolset activo? Tira si la tool no está clasificada. */
+export function isToolEnabled(name: string, enabled: ReadonlySet<Toolset>): boolean {
+  const ts = TOOL_TOOLSET[name];
+  if (!ts) {
+    throw new Error(`La tool ${name} no tiene toolset asignado en src/toolsets.ts (TOOL_TOOLSET).`);
+  }
+  return enabled.has(ts);
+}

@@ -73,7 +73,7 @@ export const FREE_TEXT_SCHEMA = z.string().min(1).max(200);
  * segmentos de URL como `/api/teams/:handle/members/:user` — quedan bloqueados
  * de raíz, igual que hace SLUG_SCHEMA para los paths.
  */
-const USERNAME_RE = /^[a-z0-9-]{2,32}$/;
+export const USERNAME_RE = /^[a-z0-9-]{2,32}$/;
 
 const USERNAME_ERROR =
   "Username/handle inválido: debe matchear [a-z0-9-]{2,32} (sin '.', '..' ni '/'). / Invalid username/handle.";
@@ -125,3 +125,36 @@ export const GRANT_ID_SCHEMA = hexIdSchema(16, "grant id");
 
 /** shortKeyId de una API key: 8 chars hex (prefijo del hash de la key). */
 export const KEY_ID_SCHEMA = hexIdSchema(8, "key id");
+
+/**
+ * PEN-03 · código MFA para el step-up (TOTP de 6 dígitos o recovery code). El
+ * back lo exige al emitir/rotar keys e instanciar agentes si la cuenta tiene MFA
+ * (por Bearer, siempre). Lo da el USUARIO en el momento: nunca inventarlo ni
+ * guardarlo.
+ */
+export const MFA_CODE_SCHEMA = z
+  .string()
+  .regex(/^[0-9A-Za-z-]{6,20}$/, "mfaCode inválido: TOTP de 6 dígitos o recovery code. / Invalid mfaCode.")
+  .describe("Código MFA del usuario (TOTP o recovery), solo si la op respondió step_up_required. Pedíselo al usuario; nunca lo inventes ni lo guardes. Cada código sirve para UNA operación: no lo reuses en otra tool ni en un reintento (si responde code_already_used, pedí el próximo)");
+
+/**
+ * AX-04 · clave de idempotencia (header `Idempotency-Key`). La elige el agente para
+ * poder REUSARLA si reintenta la misma operación; si no la pasa, el MCP genera un
+ * UUID por invocación. Charset acotado: viaja en un header HTTP.
+ */
+export const IDEMPOTENCY_KEY_SCHEMA = z
+  .string()
+  .min(8)
+  .max(128)
+  .regex(/^[A-Za-z0-9_.:-]+$/, "idempotencyKey: 8-128 chars [A-Za-z0-9_.:-]. / Invalid idempotencyKey.");
+
+/**
+ * Path de un archivo local (AX P4). La validación de seguridad real (confinamiento a
+ * OUTBOX_FILES_DIR, symlinks, extensiones) vive en src/files.ts; acá solo se acota
+ * el largo y se rechazan bytes nulos.
+ */
+export const FILE_PATH_SCHEMA = z
+  .string()
+  .min(1)
+  .max(1024)
+  .refine((v) => !v.includes("\0"), "file_path inválido. / Invalid file_path.");
