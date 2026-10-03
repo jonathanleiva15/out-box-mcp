@@ -6,6 +6,12 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-10-03
+
+- README: el paquete ya está en npm; suma el connector remoto (`https://mcp.out-box.dev/mcp`) como vía para Claude y deja la instalación desde el repo solo para desarrollo.
+- `server.json`: declara el remoto streamable-http y pasa sus textos a inglés para el MCP Registry.
+- Release por npm Trusted Publishing (OIDC) en vez de un token de larga vida.
+
 ## [0.3.0] — 2026-10-03
 
 Primera versión publicada en npm. Incluye todo lo de abajo (SDK v2 de MCP, toolsets, registro portable compartido con el MCP remoto) más Empresas v3 (invitaciones, roles, grupos, perfil público, aperturas, links por destinatario), `outbox_set_page_password` y el paquete sin source maps.

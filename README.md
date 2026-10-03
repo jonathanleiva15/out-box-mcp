@@ -9,47 +9,23 @@ Es una de las **3 vías** para usar Outbox desde un agente:
 - **skill** `outbox-publish` — para agentes con skills.
 - **MCP** (este paquete) — tools nativas en clientes MCP.
 
-## Instalación (local, stdio)
+## Instalación
 
-> ⚠️ **El paquete todavía NO está publicado en npm** (`@out-box/mcp` → 404, verificado 2026-07-18).
-> El config con `npx -y @out-box/mcp` de más abajo **no funciona aún** — quedará como la vía
-> recomendada cuando se publique. **Hoy la vía que SÍ funciona** es correr el server desde el
-> repo clonado (ver "Instalación desde el repo").
+Hay dos formas de conectarlo. Las dos exponen las mismas tools.
 
-Solo necesitás tu **API key** de Outbox (`outbox_*`) y **Node.js 20 o superior** (lo exige el SDK v2 de
-MCP desde la ronda 4).
+### Claude (web, escritorio y celular) — connector remoto, sin instalar nada
 
-### Instalación desde el repo (la vía que funciona hoy)
+En claude.ai → Settings → Connectors → **Add custom connector**, con la URL
+`https://mcp.out-box.dev/mcp`. Claude te manda a iniciar sesión en Outbox y a elegir los permisos
+(`outbox:read`, `outbox:write`, `outbox:delete`); no hace falta API key. Cada conexión crea una agent
+key "Claude connector" que podés revocar en out-box.dev → Settings → Keys.
 
-```bash
-git clone https://github.com/jonathanleiva15/out-box-mcp.git
-cd out-box-mcp
-npm install
-npm run build        # compila a dist/
-```
+En Claude Code: `claude mcp add --transport http outbox https://mcp.out-box.dev/mcp`.
 
-Y apuntá tu config de MCP (`claude_desktop_config.json`) al build local:
+### Claude Desktop / Cursor / cualquier cliente stdio — vía `npx`
 
-```json
-{
-  "mcpServers": {
-    "outbox": {
-      "command": "node",
-      "args": ["/ruta/absoluta/al/repo/out-box-mcp/dist/index.js"],
-      "env": {
-        "OUTBOX_API_KEY": "outbox_xxxxxxxxxxxxxxxx"
-      }
-    }
-  }
-}
-```
-
-Alternativa: `npm link` dentro del repo registra el bin `outbox-mcp` globalmente, y en el config
-usás `"command": "outbox-mcp"` sin `args`.
-
-### Claude Desktop / Cursor — vía `npx` (cuando el paquete se publique)
-
-No requiere instalar nada global: el cliente MCP lo lanza con `npx`.
+Necesitás tu **API key** de Outbox (`outbox_*`) y **Node.js 20 o superior**. No requiere instalar nada
+global: el cliente MCP lo lanza con `npx`.
 
 ```json
 {
@@ -64,6 +40,18 @@ No requiere instalar nada global: el cliente MCP lo lanza con `npx`.
   }
 }
 ```
+
+### Desde el repo (desarrollo)
+
+```bash
+git clone https://github.com/jonathanleiva15/out-box-mcp.git
+cd out-box-mcp
+npm install
+npm run build        # compila a dist/
+```
+
+Y en el config usá `"command": "node"` con `"args": ["/ruta/absoluta/al/repo/out-box-mcp/dist/index.js"]`
+(o `npm link` y `"command": "outbox-mcp"`).
 
 > 💡 **Tip de seguridad (entornos cloud/compartidos):** usá una **agent key acotada a una carpeta**
 > (`outbox keys gen-agent --folder <carpeta> --verbs publish,list --days 30`). Si el entorno se filtra,
