@@ -1,0 +1,66 @@
+name: registry
+
+# Publica server.json en el MCP Registry oficial (registry.modelcontextprotocol.io)
+# como `dev.out-box/mcp`. SOLO manual: listar el server es público, así que se
+# corre a mano cuando el sitio esté abierto. Por default valida sin publicar.
+#
+# Auth por dominio (DNS): el nombre `dev.out-box/*` se prueba con un TXT en
+# out-box.dev ("v=MCPv1; k=ed25519; p=<pública>"); la privada (hex del seed
+# ed25519) vive en el secret MCP_REGISTRY_PRIVATE_KEY. El registry además verifica
+# que el paquete npm publicado tenga `mcpName` = name de server.json.
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publicar de verdad (si no, solo valida y prueba el login)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  PUBLISHER_VERSION: "1.8.1"
+  PUBLISHER_SHA256: "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc"
+
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: mcp-publisher (versión fija + checksum)
+        run: |
+          set -euo pipefail
+          curl -fsSL -o mp.tgz "https://github.com/modelcontextprotocol/registry/releases/download/v${PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          echo "${PUBLISHER_SHA256}  mp.tgz" | sha256sum -c -
+          tar xzf mp.tgz mcp-publisher && rm mp.tgz
+
+      - name: La versión de server.json ya está en npm
+        run: |
+          V="$(node -p "require('./server.json').version")"
+          N="$(node -p "require('./server.json').name")"
+          npm view "@out-box/mcp@$V" version >/dev/null || { echo "::error::@out-box/mcp@$V no está publicado en npm"; exit 1; }
+          M="$(npm view "@out-box/mcp@$V" mcpName)"
+          [ "$M" = "$N" ] || { echo "::error::mcpName en npm ($M) != name de server.json ($N)"; exit 1; }
+
+      - name: Validar server.json
+        run: ./mcp-publisher validate
+
+      - name: Login por DNS (out-box.dev)
+        env:
+          KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: ./mcp-publisher login dns --domain out-box.dev --private-key "$KEY"
+
+      - name: Publicar
+        if: inputs.publish
+        run: ./mcp-publisher publish
+
+      - name: Logout
+        if: always()
+        run: ./mcp-publisher logout || true

@@ -353,7 +353,7 @@ test("server.json: OUTBOX_TOOLSETS lista todos los toolsets de src/toolsets.ts",
   const envs = server.packages.flatMap((p) => p.environmentVariables ?? []);
   const desc = envs.find((v) => v.name === "OUTBOX_TOOLSETS")?.description;
   assert.ok(desc, "OUTBOX_TOOLSETS documentada en server.json");
-  const m = desc.match(/registrar:\s*([^.]+?)\s+o all/);
+  const m = desc.match(/register:\s*([^.]+?)\s+or all/);
   assert.ok(m, `formato inesperado: ${desc}`);
   const listed = m[1].split(/,\s*/);
   assert.deepEqual([...listed].sort(), [...TOOLSETS].sort());

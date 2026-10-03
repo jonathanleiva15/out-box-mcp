@@ -3,9 +3,11 @@ name: release
 # Publica @out-box/mcp a npm cuando se pushea un tag semver (ej. `v0.2.1`).
 #
 # HUMAN-GATED: el publish SOLO ocurre al crear+pushear un tag `vX.Y.Z`. Requiere:
-#   1. El secret `NPM_TOKEN` en el repo (Settings → Secrets → Actions) — un
-#      automation token de npm con permiso de publish sobre el scope `@out-box`.
-#   2. Que el scope/org `@out-box` exista en npm y Jonathan sea miembro (2FA).
+#   1. Trusted Publisher configurado en npmjs.com (paquete @out-box/mcp → Settings →
+#      Trusted Publisher → GitHub Actions: jonathanleiva15 / out-box-mcp / release.yml).
+#      Sin token de larga vida: el job publish usa OIDC.
+#   2. Transitorio: `NPM_TOKEN` como fallback hasta el primer release por OIDC; el
+#      step "Quién publicó" avisa cuándo ya se puede borrar.
 #
 # Procedencia (npm provenance / OIDC): firma criptográficamente el origen del
 # paquete (repo + commit + workflow), clave en una tool agents-first que corre
@@ -109,20 +111,32 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # Único job con id-token:write y NPM_TOKEN. No hace checkout ni npm ci: solo baja
-  # el .tgz del build y lo publica sin lifecycle scripts.
+  # Único job con id-token:write. No hace checkout ni npm ci: solo baja el .tgz del
+  # build y lo publica sin lifecycle scripts.
+  #
+  # Trusted Publishing (OIDC): npm cambia el token OIDC del run por una credencial de
+  # un solo uso, si en npmjs.com el paquete tiene configurado como Trusted Publisher
+  # este repo + `release.yml`. Pide npm >= 11.5.1 (Node 24 lo trae). Mientras ese
+  # paso no esté hecho, npm cae a NPM_TOKEN; después del primer release por OIDC se
+  # borra el secret y la línea NODE_AUTH_TOKEN de abajo.
   publish:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      id-token: write # requerido por `npm publish --provenance` (OIDC)
+      id-token: write # Trusted Publishing (OIDC) y provenance
     steps:
       - name: Setup Node
         uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: npm >= 11.5.1 (requisito de Trusted Publishing)
+        run: |
+          V="$(npm --version)"
+          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number);process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$V"             || { echo "::error::npm $V no soporta Trusted Publishing (pide >= 11.5.1)"; exit 1; }
+          echo "npm $V"
 
       - name: Bajar el paquete
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -130,8 +144,25 @@ jobs:
           name: npm-package
           path: pkg
 
-      - name: Publish (public; provenance solo si el repo es público)
+      # Provenance: con Trusted Publishing npm la genera sola si el repo es público;
+      # en un repo privado npm no la soporta, así que no se pide.
+      - name: Publish (public, Trusted Publishing con fallback a NPM_TOKEN)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           TARBALL: ${{ needs.build.outputs.tarball }}
-        run: npm publish "./pkg/$TARBALL" --access public --ignore-scripts ${{ !github.event.repository.private && '--provenance' || '' }}
+        run: npm publish "./pkg/$TARBALL" --access public --ignore-scripts
+
+      # Deja asentado en el run si salió por OIDC: npm registra como publicador a
+      # "GitHub Actions" solo en los publish por Trusted Publishing.
+      - name: Quién publicó
+        env:
+          TARBALL: ${{ needs.build.outputs.tarball }}
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          for i in 1 2 3 4 5 6; do
+            U="$(npm view "@out-box/mcp@$VER" _npmUser --json 2>/dev/null || true)"
+            [ -n "$U" ] && break; sleep 10
+          done
+          echo "publicador: $U"
+          case "$U" in *"GitHub Actions"*) echo "::notice::Publicado por Trusted Publishing (OIDC). Ya se puede borrar NPM_TOKEN.";;
+                       *) echo "::warning::Publicado con NPM_TOKEN: falta configurar el Trusted Publisher en npmjs.com.";; esac

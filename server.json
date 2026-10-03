@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "dev.out-box/mcp",
   "title": "Outbox",
-  "description": "Publicá y gestioná HTMLs en tu biblioteca agents-first de Outbox desde un cliente MCP.",
+  "description": "Publish and manage HTML pages in your agents-first Outbox library from any MCP client.",
   "repository": {
     "url": "https://github.com/jonathanleiva15/out-box-mcp",
     "source": "github"
@@ -22,43 +22,49 @@
       "environmentVariables": [
         {
           "name": "OUTBOX_API_KEY",
-          "description": "API key de Outbox (Bearer `outbox_*`). Sin ella (ni ~/.outboxrc del CLI) el server arranca igual y cada tool pide configurarla.",
+          "description": "Outbox API key (Bearer `outbox_*`). Without it (or the CLI's ~/.outboxrc) the server still starts and every tool asks you to configure it.",
           "isRequired": true,
           "isSecret": true
         },
         {
           "name": "OUTBOX_USER",
-          "description": "Username del owner para defaultear el arg `user` sin pegarle a /api/me (opcional).",
+          "description": "Owner username used as the default `user` argument, skipping a call to /api/me (optional).",
           "isRequired": false
         },
         {
           "name": "OUTBOX_RC",
-          "description": "Path alternativo al archivo de credencial del CLI (default ~/.outboxrc).",
+          "description": "Alternative path to the CLI credential file (default ~/.outboxrc).",
           "isRequired": false,
           "format": "filepath"
         },
         {
           "name": "OUTBOX_API_BASE",
-          "description": "Base de la API (todo, incluida la lectura de contenido). Default https://api.out-box.dev.",
+          "description": "API base URL (everything, including content reads). Default https://api.out-box.dev.",
           "isRequired": false
         },
         {
           "name": "OUTBOX_SITE_BASE",
-          "description": "Base del sitio público, solo para armar la URL que se muestra al humano. Default https://out-box.dev.",
+          "description": "Public site base URL, only used to build the link shown to the human. Default https://out-box.dev.",
           "isRequired": false
         },
         {
           "name": "OUTBOX_TOOLSETS",
-          "description": "Toolsets a registrar: core, comments, library, sharing, keys, teams, automation, apps o all. Default core,comments.",
+          "description": "Toolsets to register: core, comments, library, sharing, keys, teams, automation, apps or all. Default core,comments.",
           "isRequired": false
         },
         {
           "name": "OUTBOX_FILES_DIR",
-          "description": "Carpeta donde el MCP lee/escribe archivos con file_path (nada fuera de ella). Default ~/Outbox.",
+          "description": "Folder where the MCP reads/writes files via file_path (nothing outside it). Default ~/Outbox.",
           "isRequired": false,
           "format": "filepath"
         }
       ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.out-box.dev/mcp"
     }
   ]
 }
