@@ -6,6 +6,10 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-10-03
+
+Primera versión publicada en npm. Incluye todo lo de abajo (SDK v2 de MCP, toolsets, registro portable compartido con el MCP remoto) más Empresas v3 (invitaciones, roles, grupos, perfil público, aperturas, links por destinatario), `outbox_set_page_password` y el paquete sin source maps.
+
 ### Ronda 4 (2026-10-01)
 
 - **SDK v2 de MCP.** El binario stdio pasa de `@modelcontextprotocol/sdk` 1.x a `@modelcontextprotocol/server`
