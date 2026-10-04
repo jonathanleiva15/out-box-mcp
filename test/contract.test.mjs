@@ -342,7 +342,7 @@ test("el enum de eventos coincide con WEBHOOK_EVENTS del worker (si el monorepo 
   const src = readFileSync(workerFile, "utf8");
   const block = src.match(/WEBHOOK_EVENTS\s*=\s*\[([\s\S]*?)\]\s*as const/);
   assert.ok(block, "no se encontró WEBHOOK_EVENTS en el worker");
-  const events = [...block[1].matchAll(/'([a-z]+\.[a-z]+)'/g)].map((m) => m[1]);
+  const events = [...block[1].matchAll(/'([a-z_]+\.[a-z_]+)'/g)].map((m) => m[1]);
   assert.deepEqual([...events].sort(), [...EXPECTED_EVENTS].sort());
 });
 
