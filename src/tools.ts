@@ -232,7 +232,7 @@ export function publishRenderNotice(
     renderStatus === "tool"
       ? "consultá outbox_render_status después."
       : renderStatus === "toolset"
-        ? "abrí la página en el navegador y confirmá que se vea bien (o activá el toolset library, OUTBOX_TOOLSETS=core,comments,library, para seguir el render desde el MCP)."
+        ? "abrí la página en el navegador y confirmá que se vea bien (o activá el toolset library, OUTBOX_TOOLSETS=core,comments,sharing,library, para seguir el render desde el MCP)."
         : "abrí la página en el navegador y confirmá que se vea bien.";
   return `Aviso de render: la versión que reemplazaste (v${version}) se veía rota (status ${status}, reporte ${src}). La nueva recién se evalúa cuando alguien la mire: ${next}`;
 }

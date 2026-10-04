@@ -5,7 +5,7 @@
  * (Claude Desktop, Cursor, Agent SDK) y competía en la selección con 63 vecinas. Las
  * tools se agrupan por toolset y el server registra solo los activos:
  *
- *   OUTBOX_TOOLSETS=core,comments          (default)
+ *   OUTBOX_TOOLSETS=core,comments,sharing  (default: compartir es la propuesta central)
  *   OUTBOX_TOOLSETS=all                    (todo)
  *   OUTBOX_TOOLSETS=core,sharing,keys      (combinación)
  *
@@ -18,7 +18,7 @@ export const TOOLSETS = ["core", "comments", "library", "sharing", "keys", "team
 export type Toolset = (typeof TOOLSETS)[number];
 
 /** Toolsets activos si OUTBOX_TOOLSETS no está definido. */
-export const DEFAULT_TOOLSETS: readonly Toolset[] = ["core", "comments"];
+export const DEFAULT_TOOLSETS: readonly Toolset[] = ["core", "comments", "sharing"];
 
 /** Qué hace cada toolset (se muestra en las instructions del server). */
 export const TOOLSET_SUMMARY: Record<Toolset, string> = {

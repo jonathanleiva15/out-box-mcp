@@ -392,3 +392,14 @@ test("outbox_create_grant sin permissions sigue mandando ['view'] (default)", as
   await call("outbox_create_grant", { recipientUser: "ana", resource: "notas" });
   assert.deepEqual(calls[0].body.permissions, ["view"]);
 });
+
+// ── Share links con passphrase (2026-10-04) ──────────────────────────────────
+
+test("outbox_create_share sin passphrase no manda el campo; muy corta es input inválido", async () => {
+  respond = () => ({ json: { token: "t2", url: "https://x/t2" } });
+  const r = await call("outbox_create_share", { resource: "propuesta" });
+  assert.equal(r.isError, false, r.text);
+  assert.equal("passphrase" in calls[0].body, false);
+  const bad = await call("outbox_create_share", { resource: "propuesta", passphrase: "abc" });
+  assert.equal(bad.isError, true);
+});

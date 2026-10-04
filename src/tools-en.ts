@@ -83,7 +83,7 @@ export function renderNoticeEn(
     renderStatus === "tool"
       ? "check outbox_render_status afterwards."
       : renderStatus === "toolset"
-        ? "open the page in a browser and check that it renders correctly (or enable the library toolset, OUTBOX_TOOLSETS=core,comments,library, to track rendering from the MCP)."
+        ? "open the page in a browser and check that it renders correctly (or enable the library toolset, OUTBOX_TOOLSETS=core,comments,sharing,library, to track rendering from the MCP)."
         : "open the page in a browser and check that it renders correctly.";
   return `Render notice: the version you replaced (v${version}) looked broken (status ${status}, ${source} report). The new version is only evaluated once someone views it: ${next}`;
 }

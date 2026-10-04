@@ -119,7 +119,7 @@ Variables de entorno (todas opcionales salvo la credencial):
 | `OUTBOX_RC` | `~/.outboxrc` | Path alternativo al archivo de credencial. |
 | `OUTBOX_API_BASE` | `https://api.out-box.dev` | Base de la API (mutaciones, listados, gestión). |
 | `OUTBOX_SITE_BASE` | `https://out-box.dev` | Solo para la URL pública que se muestra al humano (`SITE_BASE/<user>/<slug>`, sin `/u/`). No se usa para leer. |
-| `OUTBOX_TOOLSETS` | `core,comments` | Toolsets a registrar (`all` = todos). |
+| `OUTBOX_TOOLSETS` | `core,comments,sharing` | Toolsets a registrar (`all` = todos). |
 | `OUTBOX_FILES_DIR` | `~/Outbox` | Raíz del I/O local de `file_path`. |
 
 ## Contrato

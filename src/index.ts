@@ -13,7 +13,7 @@
  *
  * Mesa 2026-09-29 (AX / DEVC):
  * - `instructions` del server con las reglas transversales (src/instructions.ts).
- * - Toolsets (OUTBOX_TOOLSETS, src/toolsets.ts): por default solo core + comments.
+ * - Toolsets (OUTBOX_TOOLSETS, src/toolsets.ts): por default core + comments + sharing.
  * - Arranca SIN credencial: cada tool devuelve un error accionable (AX-10).
  * - Errores con texto + objeto estructurado { code, retryable, fix } (AX-03/AX-10).
  * - Lectura canónica por /export; nunca el shell sandbox (DEVC-01).
