@@ -1672,7 +1672,7 @@ export function registerOutboxTools(
     {
       title: "Outbox: crear share link",
       description:
-        "Crea un link público anónimo (share token) para una página o carpeta, con expiración opcional. " +
+        "Crea un link (share token) para una página o carpeta, con expiración, destinatario y contraseña opcionales. " +
         "`resource` = slug de la página o path de la carpeta. Cualquiera con el link la ve: confirmá con el usuario antes de crearlo.",
       inputSchema: {
         resource: SLUG_SCHEMA.describe("Slug/path del recurso a compartir"),
@@ -1686,15 +1686,23 @@ export function registerOutboxTools(
           .describe(
             "Destinatario del link (ej. 'Laura · Acme'). Un link por persona: cada apertura queda a su nombre en outbox_page_views, aunque no tenga cuenta",
           ),
+        passphrase: z
+          .string()
+          .min(4)
+          .max(256)
+          .optional()
+          .describe(
+            "Contraseña opcional (4-256 caracteres) que el destinatario tiene que poner para abrir el link. Se guarda hasheada; pasásela por otro canal",
+          ),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
-    async ({ resource, resourceType, expiresInDays, recipient }) => {
+    async ({ resource, resourceType, expiresInDays, recipient, passphrase }) => {
       try {
         return ok(
           await client.req("/api/share", {
             method: "POST",
-            body: { resource, resourceType, expiresInDays, recipient },
+            body: { resource, resourceType, expiresInDays, recipient, ...(passphrase ? { passphrase } : {}) },
           }),
         );
       } catch (e) {
@@ -2494,7 +2502,7 @@ export function registerOutboxTools(
       description:
         "Aperturas de una página (GET /api/u/:user/:slug/views): total, hoy, lectores identificados (logueados o por link " +
         "con destinatario, como 'link:Laura · Acme') y la PRIMERA apertura externa (firstViewedAt, firstViewer). Las vistas " +
-        "del equipo no cuentan. Usalo para saber si el cliente abrió la propuesta. Read-only.",
+        "del equipo no cuentan. Usalo para saber si el cliente abrió la propuesta. Sirve con cualquier key que pueda leer la página. Read-only.",
       inputSchema: {
         slug: SLUG_SCHEMA,
         user: USER_SCHEMA.optional().describe("Namespace dueño (default: el de tu key; una company key lee su org)"),

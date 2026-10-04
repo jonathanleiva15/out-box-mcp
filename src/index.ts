@@ -99,7 +99,9 @@ registerOutboxTools(host, client, {
       ? // Era 2025 (la única que sirve este transporte): elicitation push-style.
         (req: ElicitRequest): Promise<ElicitAnswer> => server.server.elicitInput(req)
       : undefined,
-  lang: "es",
+  // Mercado prioritario EE.UU. (mesa 2026-10-04): inglés por default; OUTBOX_LANG=es
+  // vuelve a los textos en español. Las tools sin texto en inglés quedan en español.
+  lang: process.env.OUTBOX_LANG === "es" ? "es" : "en",
   // Ronda 4: offset/maxChars en outbox_pull (paridad con el remoto; opt-in por llamada).
   pullChunks: true,
 });

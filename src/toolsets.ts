@@ -104,7 +104,8 @@ export const TOOL_TOOLSET: Record<string, Toolset> = {
   outbox_team_groups: "teams",
   outbox_team_profile: "teams",
   // Señales de una página publicada: quién la abrió (lo completado se lee con outbox_page_data).
-  outbox_page_views: "sharing",
+  // Mesa 2026-10-04: "¿lo abrió el cliente?" es parte del loop básico (read-only).
+  outbox_page_views: "core",
   // automation
   outbox_webhook_events: "automation",
   outbox_create_webhook: "automation",

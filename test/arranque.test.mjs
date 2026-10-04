@@ -38,7 +38,8 @@ describe("default (sin OUTBOX_TOOLSETS): core + comments", () => {
     // Ronda 4: +~1 KB por los params nuevos (outbox_append createOnly/applyAttributes,
     // outbox_pull offset/maxChars). El SDK 1.x ya dejaba 32.990 bytes (10 bajo el tope
     // anterior); con el v2 cambia `$schema` (2020-12) y desaparece `execution`.
-    assert.ok(bytes < 34000, `tools/list pesa ${bytes} bytes (antes 66.681)`);
+    // Mesa 2026-10-04: +~0,6 KB por outbox_page_views en core ("¿lo abrió el cliente?").
+    assert.ok(bytes < 35000, `tools/list pesa ${bytes} bytes (antes 66.681)`);
   });
 });
 

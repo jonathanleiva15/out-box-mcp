@@ -6,6 +6,11 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 
 ## [Unreleased]
 
+- Las tools salen en inglés por default (`OUTBOX_LANG=es` vuelve al español); las que todavía no tienen texto en inglés quedan en español.
+- `outbox_create_share` acepta `passphrase` (contraseña del link). Antes se descartaba en silencio y el link quedaba abierto.
+- `outbox_page_views` pasa al toolset `core` y funciona con cualquier key que pueda leer la página (requiere el worker con la mesa del 2026-10-04).
+- Textos en inglés para `outbox_create_share`, `outbox_list_shares`, `outbox_revoke_share` y `outbox_page_views`, así el connector remoto los puede exponer.
+
 ## [0.3.1] — 2026-10-03
 
 - README: el paquete ya está en npm; suma el connector remoto (`https://mcp.out-box.dev/mcp`) como vía para Claude y deja la instalación desde el repo solo para desarrollo.

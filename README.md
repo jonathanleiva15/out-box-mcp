@@ -80,6 +80,7 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `OUTBOX_USER` | (de `~/.outboxrc` o `/api/me`) | Username del owner, para defaultear el arg `user` de las tools sin pegarle a `/api/me`. |
 | `OUTBOX_RC` | `~/.outboxrc` | Path alternativo al archivo de credencial que escribe el CLI (útil en entornos con otro `HOME`). |
 | `OUTBOX_TOOLSETS` | `core,comments` | Qué grupos de tools se registran: `core`, `comments`, `library`, `sharing`, `keys`, `teams`, `automation`, `apps` o `all`. `core` siempre queda activo. |
+| `OUTBOX_LANG` | `en` | Idioma de los títulos y descripciones de las tools: `en` (default) o `es`. |
 | `OUTBOX_FILES_DIR` | `~/Outbox` | Carpeta donde el MCP lee/escribe archivos con `file_path`. Nada fuera de ella. |
 | `OUTBOX_API_BASE` | `https://api.out-box.dev` | Base de la API (todo, incluida la lectura de contenido). |
 | `OUTBOX_SITE_BASE` | `https://out-box.dev` | Solo para armar la URL pública que se le muestra al humano (`SITE_BASE/<user>/<slug>`, sin `/u/`). No se usa para leer. |
@@ -99,7 +100,7 @@ instrucciones**, confirmar antes de toda tool destructiva, cómo leer los errore
 **14 llevan `destructiveHint: true`** (los clientes que gatean confirmación por esa annotation van a
 pedir OK): borrar, rollback, squash, revocar, rotar, `outbox_go_live` y `outbox_accept_suggestion`.
 
-### core (17)
+### core (18)
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -120,6 +121,7 @@ pedir OK): borrar, rollback, squash, revocar, rotar, `outbox_go_live` y `outbox_
 | `outbox_rollback` | Revertir a una versión | ⚠️ destructivo |
 | `outbox_go_live` | Publicar un borrador (o volverlo a borrador) | ⚠️ destructivo |
 | `outbox_delete` | Eliminar una página | ⚠️ destructivo |
+| `outbox_page_views` | Quién abrió una página: total, hoy, lectores (`link:<destinatario>` para links con nombre) y primera apertura externa. Sirve con cualquier key que pueda leer la página | read |
 
 ### comments (5)
 
@@ -155,7 +157,7 @@ pedir OK): borrar, rollback, squash, revocar, rotar, `outbox_go_live` y `outbox_
 | `outbox_list_shares` | Share links activos | read |
 | `outbox_list_grants` | Grants user-to-user (dados / recibidos; en los recibidos, message/resource/url del tercero van en `untrustedText` + `notice`) | read |
 | `outbox_access` | Quién puede acceder a una página y cómo (blast radius) | read |
-| `outbox_create_share` | Crear link público (con expiración) | write |
+| `outbox_create_share` | Crear un link (con expiración, destinatario y contraseña opcionales: `passphrase`) | write |
 | `outbox_create_grant` | Dar acceso a otro usuario (`view` o `comment`) | write |
 | `outbox_revoke_share` | Revocar un share link | ⚠️ destructivo |
 | `outbox_revoke_grant` | Revocar un grant user-to-user | ⚠️ destructivo |
