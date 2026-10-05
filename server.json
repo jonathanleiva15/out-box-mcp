@@ -49,7 +49,7 @@
         },
         {
           "name": "OUTBOX_TOOLSETS",
-          "description": "Toolsets to register: core, comments, library, sharing, keys, teams, automation, apps or all. Default core,comments.",
+          "description": "Toolsets to register: core, comments, library, sharing, keys, teams, automation, apps or all. Default core,comments,sharing.",
           "isRequired": false
         },
         {

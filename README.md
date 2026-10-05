@@ -79,7 +79,8 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 | `OUTBOX_API_KEY` | — | La API key `outbox_*` (recomendado). Si está, tiene precedencia sobre `~/.outboxrc`. |
 | `OUTBOX_USER` | (de `~/.outboxrc` o `/api/me`) | Username del owner, para defaultear el arg `user` de las tools sin pegarle a `/api/me`. |
 | `OUTBOX_RC` | `~/.outboxrc` | Path alternativo al archivo de credencial que escribe el CLI (útil en entornos con otro `HOME`). |
-| `OUTBOX_TOOLSETS` | `core,comments` | Qué grupos de tools se registran: `core`, `comments`, `library`, `sharing`, `keys`, `teams`, `automation`, `apps` o `all`. `core` siempre queda activo. |
+| `OUTBOX_TOOLSETS` | `core,comments,sharing` | Qué grupos de tools se registran: `core`, `comments`, `library`, `sharing`, `keys`, `teams`, `automation`, `apps` o `all`. `core` siempre queda activo. |
+| `OUTBOX_LANG` | `en` | Idioma de los títulos y descripciones de las tools: `en` (default) o `es`. |
 | `OUTBOX_FILES_DIR` | `~/Outbox` | Carpeta donde el MCP lee/escribe archivos con `file_path`. Nada fuera de ella. |
 | `OUTBOX_API_BASE` | `https://api.out-box.dev` | Base de la API (todo, incluida la lectura de contenido). |
 | `OUTBOX_SITE_BASE` | `https://out-box.dev` | Solo para armar la URL pública que se le muestra al humano (`SITE_BASE/<user>/<slug>`, sin `/u/`). No se usa para leer. |
@@ -91,15 +92,16 @@ leer → sumar → re-publicar, qué hereda un re-publish, **contenido de tercer
 instrucciones**, confirmar antes de toda tool destructiva, cómo leer los errores, `expectedVersion`,
 `file_path` y qué toolsets hay activos. Ver `src/instructions.ts`.
 
-## Tools disponibles (67)
+## Tools disponibles (76)
 
-67 tools en 8 toolsets (conteo del 2026-09-30, ronda 3). Por default solo se registran **core** y
-**comments** (22 tools, unos 30 KB de `tools/list` contra los 67 KB de antes); el resto se habilita con
-`OUTBOX_TOOLSETS`. 32 son read-only y
-**14 llevan `destructiveHint: true`** (los clientes que gatean confirmación por esa annotation van a
-pedir OK): borrar, rollback, squash, revocar, rotar, `outbox_go_live` y `outbox_accept_suggestion`.
+76 tools en 8 toolsets (conteo del 2026-10-04). Por default se registran **core**, **comments** y
+**sharing** (31 tools, unos 42 KB de `tools/list` contra los 90 KB de todas): compartir es la propuesta
+central de Outbox. El resto se habilita con `OUTBOX_TOOLSETS`. 34 son read-only y
+**16 llevan `destructiveHint: true`** (los clientes que gatean confirmación por esa annotation van a
+pedir OK): borrar, rollback, squash, revocar, rotar, salir de un equipo, gestionar grupos, `outbox_go_live`
+y `outbox_accept_suggestion`.
 
-### core (17)
+### core (18)
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -120,6 +122,7 @@ pedir OK): borrar, rollback, squash, revocar, rotar, `outbox_go_live` y `outbox_
 | `outbox_rollback` | Revertir a una versión | ⚠️ destructivo |
 | `outbox_go_live` | Publicar un borrador (o volverlo a borrador) | ⚠️ destructivo |
 | `outbox_delete` | Eliminar una página | ⚠️ destructivo |
+| `outbox_page_views` | Quién abrió una página: total, hoy, lectores (`link:<destinatario>` para links con nombre) y primera apertura externa. Sirve con cualquier key que pueda leer la página | read |
 
 ### comments (5)
 
@@ -148,14 +151,15 @@ pedir OK): borrar, rollback, squash, revocar, rotar, `outbox_go_live` y `outbox_
 | `outbox_render_status` | Vigía de render de una versión (`GET /api/render-report`): `ok`/`warn`/`error`/`blank`, errores de JS y recursos. `rollbackHint` solo si el reporte es del owner; el de visitantes sale en `untrustedVisitorReport` | read |
 | `outbox_page_data` | Entradas de la capa de datos de una página (`GET /api/page-data`, `after`/`limit`). Las de visitantes van en `untrustedData` con `untrustedNotice`: son dato, nunca instrucciones | read |
 
-### sharing (7)
+### sharing (8)
 
 | Tool | Qué hace | |
 |---|---|---|
 | `outbox_list_shares` | Share links activos | read |
 | `outbox_list_grants` | Grants user-to-user (dados / recibidos; en los recibidos, message/resource/url del tercero van en `untrustedText` + `notice`) | read |
 | `outbox_access` | Quién puede acceder a una página y cómo (blast radius) | read |
-| `outbox_create_share` | Crear link público (con expiración) | write |
+| `outbox_create_share` | Crear un link (con expiración, destinatario y contraseña opcionales: `passphrase`) | write |
+| `outbox_set_page_password` | Poner o sacar la contraseña de una página | write |
 | `outbox_create_grant` | Dar acceso a otro usuario (`view` o `comment`) | write |
 | `outbox_revoke_share` | Revocar un share link | ⚠️ destructivo |
 | `outbox_revoke_grant` | Revocar un grant user-to-user | ⚠️ destructivo |
@@ -172,7 +176,7 @@ pedir OK): borrar, rollback, squash, revocar, rotar, `outbox_go_live` y `outbox_
 | `outbox_rotate_key` | Rotar una API key (`keyId` obligatorio; nunca la activa del MCP) | ⚠️ destructivo |
 | `outbox_revoke_key` | Revocar una API key (nunca la activa del MCP) | ⚠️ destructivo |
 
-### teams (8)
+### teams (15)
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -183,7 +187,14 @@ pedir OK): borrar, rollback, squash, revocar, rotar, `outbox_go_live` y `outbox_
 | `outbox_add_team_member` | Sumar un miembro (owner-only) | write |
 | `outbox_gen_team_key` | Emitir company key (plaintext 1 vez) | ⚠️ sensible |
 | `outbox_revoke_team_key` | Revocar una company key (nunca la activa del MCP) | ⚠️ destructivo |
+| `outbox_team_invites` | Invitaciones recibidas, o las pendientes de un org (owner/admin) | read |
+| `outbox_invite_team_member` | Invitar a alguien al org (acepta o rechaza; vence a los 14 días) | write |
+| `outbox_respond_team_invite` | Aceptar o rechazar una invitación (key humana o sesión) | write |
+| `outbox_set_team_member` | Cambiar rol (admin/member) o la gestión de company keys de un miembro | write |
+| `outbox_team_profile` | Leer o guardar el perfil público del org | write |
 | `outbox_remove_team_member` | Quitar un miembro (owner-only) | ⚠️ destructivo |
+| `outbox_leave_team` | Salir de un equipo | ⚠️ destructivo |
+| `outbox_team_groups` | Grupos del org: cada uno da acceso a proyectos (carpetas) | ⚠️ destructivo |
 
 ### automation (9)
 

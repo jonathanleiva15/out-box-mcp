@@ -83,7 +83,7 @@ export function renderNoticeEn(
     renderStatus === "tool"
       ? "check outbox_render_status afterwards."
       : renderStatus === "toolset"
-        ? "open the page in a browser and check that it renders correctly (or enable the library toolset, OUTBOX_TOOLSETS=core,comments,library, to track rendering from the MCP)."
+        ? "open the page in a browser and check that it renders correctly (or enable the library toolset, OUTBOX_TOOLSETS=core,comments,sharing,library, to track rendering from the MCP)."
         : "open the page in a browser and check that it renders correctly.";
   return `Render notice: the version you replaced (v${version}) looked broken (status ${status}, ${source} report). The new version is only evaluated once someone views it: ${next}`;
 }
@@ -316,6 +316,36 @@ export const TOOL_TEXT_EN: Record<string, ToolTextEn> = {
     title: "Outbox: page preview (viewer)",
     description:
       "Returns the stored HTML of a page for the Outbox viewer's sandboxed preview (app-only). Read-only.",
+  },
+  outbox_create_share: {
+    title: "Outbox: create a share link",
+    description:
+      "Creates a share link (share token) for a page or folder, with optional expiry, recipient name and password. Anyone with the link (and the password, if set) can open it. Returns { token, url, expiresAt, passphraseProtected, recipient }.",
+    params: {
+      resource: "Slug/path of the page or folder to share",
+      resourceType: "post (a page) or folder",
+      expiresInDays: "Days until the link expires (null = never)",
+      recipient:
+        "Who the link is for (e.g. 'Laura · Acme'). One link per person: each open is recorded under that name in outbox_page_views",
+      passphrase:
+        "Optional password (4-256 characters) the recipient must enter to open the link. Stored hashed; send it to the recipient through another channel",
+    },
+  },
+  outbox_list_shares: {
+    title: "Outbox: list share links",
+    description: "Lists the active share links of the connected account. Read-only.",
+  },
+  outbox_revoke_share: {
+    title: "Outbox: revoke a share link",
+    description:
+      "Revokes a share link by its token (DELETE /api/share/:token); the link stops working immediately and cannot be reactivated. Take the token from outbox_create_share or outbox_list_shares.",
+    params: { token: "Share token to revoke (32 hex characters)" },
+  },
+  outbox_page_views: {
+    title: "Outbox: who opened a page",
+    description:
+      "Opens of one of your pages (GET /api/u/:user/:slug/views): total, today, identified readers (signed-in readers, or 'link:<recipient>' for links with a recipient) and the first external open (firstViewedAt, firstViewer). Team members' views are not counted. Works with any key that can read the page. Read-only.",
+    params: { user: "Page owner namespace (default: the connected account; a company key reads its org)" },
   },
 };
 

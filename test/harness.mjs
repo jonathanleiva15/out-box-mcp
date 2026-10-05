@@ -99,6 +99,8 @@ export async function startHarness(opts = {}) {
     OUTBOX_API_BASE: opts.apiBase ?? base,
     OUTBOX_SITE_BASE: base,
     OUTBOX_RC: join(here, "no-existe.outboxrc"),
+    // La suite cubre los textos en español del stdio; el default (inglés) tiene su test.
+    OUTBOX_LANG: "es",
     ...(opts.withKey === false ? {} : { OUTBOX_API_KEY: "outbox_test_harness_key" }),
     ...(opts.env ?? {}),
   };

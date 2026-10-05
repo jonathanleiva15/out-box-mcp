@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { startHarness } from "./harness.mjs";
 import { TOOL_TOOLSET } from "../dist/toolsets.js";
 
-describe("default (sin OUTBOX_TOOLSETS): core + comments", () => {
+describe("default (sin OUTBOX_TOOLSETS): core + comments + sharing", () => {
   let h;
   before(async () => {
     h = await startHarness();
@@ -26,11 +26,11 @@ describe("default (sin OUTBOX_TOOLSETS): core + comments", () => {
     assert.match(instr, /OUTBOX_TOOLSETS/);
   });
 
-  test("tools/list trae solo core + comments y pesa mucho menos que las 64 tools", async () => {
+  test("tools/list trae solo core + comments + sharing y pesa mucho menos que todas las tools", async () => {
     const { tools } = await h.client.listTools();
     const names = tools.map((t) => t.name).sort();
     const expected = Object.entries(TOOL_TOOLSET)
-      .filter(([, ts]) => ts === "core" || ts === "comments")
+      .filter(([, ts]) => ts === "core" || ts === "comments" || ts === "sharing")
       .map(([n]) => n)
       .sort();
     assert.deepEqual(names, expected);
@@ -38,7 +38,9 @@ describe("default (sin OUTBOX_TOOLSETS): core + comments", () => {
     // Ronda 4: +~1 KB por los params nuevos (outbox_append createOnly/applyAttributes,
     // outbox_pull offset/maxChars). El SDK 1.x ya dejaba 32.990 bytes (10 bajo el tope
     // anterior); con el v2 cambia `$schema` (2020-12) y desaparece `execution`.
-    assert.ok(bytes < 34000, `tools/list pesa ${bytes} bytes (antes 66.681)`);
+    // Mesa 2026-10-04: outbox_page_views pasa a core y sharing entra al default
+    // (compartir es la propuesta central): ~42 KB, debajo de los ~67 KB de todas.
+    assert.ok(bytes < 44000, `tools/list pesa ${bytes} bytes (antes 66.681)`);
   });
 });
 

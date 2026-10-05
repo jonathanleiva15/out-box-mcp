@@ -138,7 +138,7 @@ describe("outbox_publish: el aviso de render solo nombra tools registradas", () 
   const remoteInclude = (n) => n !== "outbox_render_status" && n !== "outbox_page_data";
 
   const hosts = [
-    { name: "stdio default (core,comments)", toolsets: new Set(DEFAULT_TOOLSETS), expect: /OUTBOX_TOOLSETS=core,comments,library/ },
+    { name: "stdio default (core,comments,sharing)", toolsets: new Set(DEFAULT_TOOLSETS), expect: /OUTBOX_TOOLSETS=core,comments,sharing,library/ },
     { name: "stdio default en", toolsets: new Set(DEFAULT_TOOLSETS), lang: "en", expect: /enable the library toolset/ },
     { name: "remoto (en)", toolsets: REMOTE_TOOLSETS, include: remoteInclude, lang: "en", expect: /open the page in a browser and check that it renders correctly\.$/ },
     { name: "remoto (es)", toolsets: REMOTE_TOOLSETS, include: remoteInclude, expect: /abrí la página en el navegador y confirmá que se vea bien\.$/ },
