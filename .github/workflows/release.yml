@@ -152,17 +152,20 @@ jobs:
           TARBALL: ${{ needs.build.outputs.tarball }}
         run: npm publish "./pkg/$TARBALL" --access public --ignore-scripts
 
-      # Deja asentado en el run si salió por OIDC: npm registra como publicador a
-      # "GitHub Actions" solo en los publish por Trusted Publishing.
+      # Deja asentado en el run si salió por OIDC: en los publish por Trusted
+      # Publishing el registry marca `_npmUser.trustedPublisher`. Espera a que la
+      # versión aparezca (npm tarda unos minutos en procesarla).
       - name: Quién publicó
-        env:
-          TARBALL: ${{ needs.build.outputs.tarball }}
         run: |
           VER="${GITHUB_REF_NAME#v}"
-          for i in 1 2 3 4 5 6; do
-            U="$(npm view "@out-box/mcp@$VER" _npmUser --json 2>/dev/null || true)"
-            [ -n "$U" ] && break; sleep 10
+          U=""
+          for i in $(seq 1 20); do
+            U="$(curl -fsS https://registry.npmjs.org/@out-box%2fmcp | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const v=JSON.parse(s).versions[process.argv[1]];process.stdout.write(v?JSON.stringify(v._npmUser||{}):"")})' "$VER" || true)"
+            [ -n "$U" ] && break; sleep 15
           done
-          echo "publicador: $U"
-          case "$U" in *"GitHub Actions"*) echo "::notice::Publicado por Trusted Publishing (OIDC). Ya se puede borrar NPM_TOKEN.";;
-                       *) echo "::warning::Publicado con NPM_TOKEN: falta configurar el Trusted Publisher en npmjs.com.";; esac
+          echo "publicador: ${U:-desconocido}"
+          case "$U" in
+            "") echo "::warning::La versión todavía no aparece en el registry; no se pudo ver cómo se publicó.";;
+            *trustedPublisher*) echo "::notice::Publicado por Trusted Publishing (OIDC). Ya se puede borrar NPM_TOKEN.";;
+            *) echo "::warning::Publicado con NPM_TOKEN: falta configurar el Trusted Publisher en npmjs.com.";;
+          esac
