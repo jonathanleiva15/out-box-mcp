@@ -2560,6 +2560,7 @@ export function registerOutboxTools(
         "Lista tus share links activos (ni revocados ni vencidos) que todavía nadie abrió (GET /api/share?unopened=1). " +
         "Pensado para links por destinatario (creados con `recipient` en outbox_create_share): responde \"¿quién no abrió la propuesta?\". " +
         "Cada ítem trae recipient, title, url, createdAt, expiresAt, remindAt y renewOnOpen. " +
+        "Con una agent key que solo lee aperturas (views), token y url vienen en null (redacted: true). " +
         "olderThanHours deja solo los creados hace más de N horas. Read-only.",
       inputSchema: {
         olderThanHours: z

@@ -349,7 +349,7 @@ export const TOOL_TEXT_EN: Record<string, ToolTextEn> = {
   outbox_unopened_links: {
     title: "Outbox: links nobody has opened",
     description:
-      "Lists your active share links (not revoked, not expired) that nobody has opened yet (GET /api/share?unopened=1). Meant for per-recipient links (created with `recipient` in outbox_create_share): answers \"who hasn't opened the proposal?\". Each item has recipient, title, url, createdAt, expiresAt, remindAt and renewOnOpen. Read-only.",
+      "Lists your active share links (not revoked, not expired) that nobody has opened yet (GET /api/share?unopened=1). Meant for per-recipient links (created with `recipient` in outbox_create_share): answers \"who hasn't opened the proposal?\". Each item has recipient, title, url, createdAt, expiresAt, remindAt and renewOnOpen. With an agent key that only reads opens (views), token and url come back null (redacted: true). Read-only.",
     params: { olderThanHours: "Only links created more than N hours ago (e.g. 48). Omitted = every link still unopened" },
   },
   outbox_page_views: {
