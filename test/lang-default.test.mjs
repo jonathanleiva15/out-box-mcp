@@ -14,6 +14,10 @@ test("sin OUTBOX_LANG las tools salen en inglés; con es, en español", async ()
     assert.equal(views?.title, "Outbox: who opened a page");
     const share = tools.find((t) => t.name === "outbox_create_share");
     assert.match(share?.inputSchema?.properties?.passphrase?.description ?? "", /password/i);
+    assert.match(share?.inputSchema?.properties?.remindIfUnopenedHours?.description ?? "", /hours/i);
+    const unopened = tools.find((t) => t.name === "outbox_unopened_links");
+    assert.equal(unopened?.title, "Outbox: links nobody has opened");
+    assert.match(unopened?.description ?? "", /per-recipient/);
   } finally {
     await en.close();
   }

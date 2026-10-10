@@ -403,3 +403,78 @@ test("outbox_create_share sin passphrase no manda el campo; muy corta es input i
   const bad = await call("outbox_create_share", { resource: "propuesta", passphrase: "abc" });
   assert.equal(bad.isError, true);
 });
+
+// ── Links por destinatario: aviso si no se abre y renovación al abrir (2026-10-10) ──
+
+test("outbox_create_share pasa remindIfUnopenedHours y renewOnOpen; null apaga el aviso", async () => {
+  respond = () => ({ json: { token: "a".repeat(32), remindAt: "2026-10-12T10:00:00.000Z", renewOnOpen: true } });
+  const r = await call("outbox_create_share", {
+    resource: "propuesta",
+    recipient: "Laura · Acme",
+    expiresInDays: 14,
+    remindIfUnopenedHours: 24,
+    renewOnOpen: true,
+  });
+  assert.equal(r.isError, false, r.text);
+  assert.equal(calls[0].body.remindIfUnopenedHours, 24);
+  assert.equal(calls[0].body.renewOnOpen, true);
+  assert.match(r.text, /remindAt/);
+
+  calls = [];
+  await call("outbox_create_share", { resource: "propuesta", recipient: "Laura · Acme", remindIfUnopenedHours: null });
+  assert.equal(calls[0].body.remindIfUnopenedHours, null);
+  assert.equal("renewOnOpen" in calls[0].body, false);
+});
+
+test("outbox_create_share sin los campos nuevos no los manda (default del back); fuera de rango es input inválido", async () => {
+  respond = () => ({ json: { token: "a".repeat(32) } });
+  await call("outbox_create_share", { resource: "propuesta", recipient: "Laura · Acme" });
+  assert.equal("remindIfUnopenedHours" in calls[0].body, false);
+  assert.equal("renewOnOpen" in calls[0].body, false);
+  for (const remindIfUnopenedHours of [0, 337, 1.5]) {
+    const bad = await call("outbox_create_share", { resource: "propuesta", remindIfUnopenedHours });
+    assert.equal(bad.isError, true, String(remindIfUnopenedHours));
+  }
+});
+
+test("outbox_unopened_links: GET /api/share?unopened=1 (+ olderThanHours) y devuelve la lista", async () => {
+  const tokens = [
+    {
+      token: "b".repeat(32),
+      recipient: "Laura · Acme",
+      title: "Propuesta Acme",
+      url: "https://out-box.dev/s/bbb",
+      createdAt: "2026-10-07T10:00:00.000Z",
+      expiresAt: null,
+      opened: false,
+      opens: null,
+      remindAt: "2026-10-09T10:00:00.000Z",
+      renewOnOpen: false,
+    },
+  ];
+  respond = () => ({ json: { tokens } });
+  const r = await call("outbox_unopened_links", { olderThanHours: 48 });
+  assert.equal(r.isError, false, r.text);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, "GET");
+  assert.equal(calls[0].path, "/api/share");
+  assert.deepEqual(calls[0].query, { unopened: "1", olderThanHours: "48" });
+  assert.match(r.text, /Laura · Acme/);
+
+  calls = [];
+  await call("outbox_unopened_links", {});
+  assert.deepEqual(calls[0].query, { unopened: "1" });
+
+  const bad = await call("outbox_unopened_links", { olderThanHours: 0 });
+  assert.equal(bad.isError, true);
+});
+
+test("outbox_unopened_links es read-only y su descripción habla de links por destinatario", async () => {
+  const { tools } = await client.listTools();
+  const t = tools.find((x) => x.name === "outbox_unopened_links");
+  assert.ok(t, "outbox_unopened_links no está registrada");
+  assert.equal(t.annotations?.readOnlyHint, true);
+  assert.notEqual(t.annotations?.destructiveHint, true);
+  assert.match(t.description, /recipient/);
+  assert.ok(t.inputSchema?.properties?.olderThanHours);
+});

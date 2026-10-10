@@ -963,7 +963,9 @@ export function registerOutboxTools(
     "outbox_list_shares",
     {
       title: "Outbox: listar share links",
-      description: "Lista los share tokens (links públicos) activos de tu cuenta. Read-only.",
+      description:
+        "Lista los share tokens (links públicos) activos de tu cuenta: recipient, title, url, opened/opens, remindAt y renewOnOpen. " +
+        "Para ver solo los que nadie abrió, outbox_unopened_links. Read-only.",
       inputSchema: {},
       annotations: { ...RO, idempotentHint: true },
     },
@@ -1673,6 +1675,8 @@ export function registerOutboxTools(
       title: "Outbox: crear share link",
       description:
         "Crea un link (share token) para una página o carpeta, con expiración, destinatario y contraseña opcionales. " +
+        "Con `recipient` y una página, te avisa a las 48 h si el link sigue sin abrirse (remindIfUnopenedHours; null lo apaga); " +
+        "renewOnOpen mantiene vivo el link mientras el cliente lo siga abriendo. " +
         "`resource` = slug de la página o path de la carpeta. Cualquiera con el link la ve: confirmá con el usuario antes de crearlo.",
       inputSchema: {
         resource: SLUG_SCHEMA.describe("Slug/path del recurso a compartir"),
@@ -1694,15 +1698,42 @@ export function registerOutboxTools(
           .describe(
             "Contraseña opcional (4-256 caracteres) que el destinatario tiene que poner para abrir el link. Se guarda hasheada; pasásela por otro canal",
           ),
+        remindIfUnopenedHours: z
+          .number()
+          .int()
+          .min(1)
+          .max(336)
+          .nullable()
+          .optional()
+          .describe(
+            "Horas (1-336) tras las cuales, si nadie abrió el link, el back te avisa por email (y por Slack si lo conectaste). " +
+              "null = sin aviso. Omitido: 48 si hay `recipient` y es una página; si no, sin aviso",
+          ),
+        renewOnOpen: z
+          .boolean()
+          .optional()
+          .describe(
+            "true = cada apertura corre la expiración a ahora + expiresInDays (tope: 90 días desde la creación y la expiración de la key). " +
+              "Requiere expiresInDays. Default false",
+          ),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
-    async ({ resource, resourceType, expiresInDays, recipient, passphrase }) => {
+    async ({ resource, resourceType, expiresInDays, recipient, passphrase, remindIfUnopenedHours, renewOnOpen }) => {
       try {
         return ok(
           await client.req("/api/share", {
             method: "POST",
-            body: { resource, resourceType, expiresInDays, recipient, ...(passphrase ? { passphrase } : {}) },
+            // remindIfUnopenedHours: null viaja (apaga el aviso); omitido deja el default del back.
+            body: {
+              resource,
+              resourceType,
+              expiresInDays,
+              recipient,
+              ...(passphrase ? { passphrase } : {}),
+              ...(remindIfUnopenedHours !== undefined ? { remindIfUnopenedHours } : {}),
+              ...(renewOnOpen !== undefined ? { renewOnOpen } : {}),
+            },
           }),
         );
       } catch (e) {
@@ -2513,6 +2544,37 @@ export function registerOutboxTools(
       try {
         const u = await resolveUser(user);
         return ok(await client.req(`/api/u/${encodeURIComponent(u)}/${encodeSlugPath(slug)}/views`));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  // Links por destinatario sin abrir (GET /api/share?unopened=1): "¿quién no abrió la
+  // propuesta?". Mismo pedido que outbox_page_views, pero mirado desde los links.
+  registerTool(
+    "outbox_unopened_links",
+    {
+      title: "Outbox: links que nadie abrió",
+      description:
+        "Lista tus share links activos (ni revocados ni vencidos) que todavía nadie abrió (GET /api/share?unopened=1). " +
+        "Pensado para links por destinatario (creados con `recipient` en outbox_create_share): responde \"¿quién no abrió la propuesta?\". " +
+        "Cada ítem trae recipient, title, url, createdAt, expiresAt, remindAt y renewOnOpen. " +
+        "olderThanHours deja solo los creados hace más de N horas. Read-only.",
+      inputSchema: {
+        olderThanHours: z
+          .number()
+          .int()
+          .min(1)
+          .max(8760)
+          .optional()
+          .describe("Solo links creados hace más de N horas (ej. 48). Omitido = todos los que siguen sin abrir"),
+      },
+      annotations: { ...RO, idempotentHint: true },
+    },
+    async ({ olderThanHours }) => {
+      try {
+        return ok(await client.req("/api/share", { query: { unopened: 1, olderThanHours } }));
       } catch (e) {
         return fail(e);
       }
