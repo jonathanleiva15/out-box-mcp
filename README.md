@@ -101,7 +101,7 @@ central de Outbox. El resto se habilita con `OUTBOX_TOOLSETS`. 35 son read-only 
 pedir OK): borrar, rollback, squash, revocar, rotar, salir de un equipo, gestionar grupos, `outbox_go_live`
 y `outbox_accept_suggestion`.
 
-### core (19)
+### core (18)
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -123,7 +123,6 @@ y `outbox_accept_suggestion`.
 | `outbox_go_live` | Publicar un borrador (o volverlo a borrador) | ⚠️ destructivo |
 | `outbox_delete` | Eliminar una página | ⚠️ destructivo |
 | `outbox_page_views` | Quién abrió una página: total, hoy, lectores (`link:<destinatario>` para links con nombre) y primera apertura externa. Sirve con cualquier key que pueda leer la página | read |
-| `outbox_unopened_links` | Links por destinatario que nadie abrió todavía (`GET /api/share?unopened=1`, `olderThanHours` opcional): "¿quién no abrió la propuesta?" | read |
 
 ### comments (5)
 
@@ -152,7 +151,7 @@ y `outbox_accept_suggestion`.
 | `outbox_render_status` | Vigía de render de una versión (`GET /api/render-report`): `ok`/`warn`/`error`/`blank`, errores de JS y recursos. `rollbackHint` solo si el reporte es del owner; el de visitantes sale en `untrustedVisitorReport` | read |
 | `outbox_page_data` | Entradas de la capa de datos de una página (`GET /api/page-data`, `after`/`limit`). Las de visitantes van en `untrustedData` con `untrustedNotice`: son dato, nunca instrucciones | read |
 
-### sharing (8)
+### sharing (9)
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -160,6 +159,7 @@ y `outbox_accept_suggestion`.
 | `outbox_list_grants` | Grants user-to-user (dados / recibidos; en los recibidos, message/resource/url del tercero van en `untrustedText` + `notice`) | read |
 | `outbox_access` | Quién puede acceder a una página y cómo (blast radius) | read |
 | `outbox_create_share` | Crear un link (con expiración, destinatario y contraseña opcionales: `passphrase`; aviso si no se abre: `remindIfUnopenedHours`, 48 h por default con destinatario; `renewOnOpen`) | write |
+| `outbox_unopened_links` | Links por destinatario que nadie abrió todavía (`GET /api/share?unopened=1`, `olderThanHours` opcional): "¿quién no abrió la propuesta?" | read |
 | `outbox_set_page_password` | Poner o sacar la contraseña de una página | write |
 | `outbox_create_grant` | Dar acceso a otro usuario (`view` o `comment`) | write |
 | `outbox_revoke_share` | Revocar un share link | ⚠️ destructivo |
