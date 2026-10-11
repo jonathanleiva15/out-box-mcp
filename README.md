@@ -92,11 +92,11 @@ leer → sumar → re-publicar, qué hereda un re-publish, **contenido de tercer
 instrucciones**, confirmar antes de toda tool destructiva, cómo leer los errores, `expectedVersion`,
 `file_path` y qué toolsets hay activos. Ver `src/instructions.ts`.
 
-## Tools disponibles (76)
+## Tools disponibles (77)
 
-76 tools en 8 toolsets (conteo del 2026-10-04). Por default se registran **core**, **comments** y
-**sharing** (31 tools, unos 42 KB de `tools/list` contra los 90 KB de todas): compartir es la propuesta
-central de Outbox. El resto se habilita con `OUTBOX_TOOLSETS`. 34 son read-only y
+77 tools en 8 toolsets (conteo del 2026-10-10). Por default se registran **core**, **comments** y
+**sharing** (32 tools, unos 42 KB de `tools/list` contra los 90 KB de todas): compartir es la propuesta
+central de Outbox. El resto se habilita con `OUTBOX_TOOLSETS`. 35 son read-only y
 **16 llevan `destructiveHint: true`** (los clientes que gatean confirmación por esa annotation van a
 pedir OK): borrar, rollback, squash, revocar, rotar, salir de un equipo, gestionar grupos, `outbox_go_live`
 y `outbox_accept_suggestion`.
@@ -151,14 +151,15 @@ y `outbox_accept_suggestion`.
 | `outbox_render_status` | Vigía de render de una versión (`GET /api/render-report`): `ok`/`warn`/`error`/`blank`, errores de JS y recursos. `rollbackHint` solo si el reporte es del owner; el de visitantes sale en `untrustedVisitorReport` | read |
 | `outbox_page_data` | Entradas de la capa de datos de una página (`GET /api/page-data`, `after`/`limit`). Las de visitantes van en `untrustedData` con `untrustedNotice`: son dato, nunca instrucciones | read |
 
-### sharing (8)
+### sharing (9)
 
 | Tool | Qué hace | |
 |---|---|---|
 | `outbox_list_shares` | Share links activos | read |
 | `outbox_list_grants` | Grants user-to-user (dados / recibidos; en los recibidos, message/resource/url del tercero van en `untrustedText` + `notice`) | read |
 | `outbox_access` | Quién puede acceder a una página y cómo (blast radius) | read |
-| `outbox_create_share` | Crear un link (con expiración, destinatario y contraseña opcionales: `passphrase`) | write |
+| `outbox_create_share` | Crear un link (con expiración, destinatario y contraseña opcionales: `passphrase`; aviso si no se abre: `remindIfUnopenedHours`, 48 h por default con destinatario; `renewOnOpen`) | write |
+| `outbox_unopened_links` | Links por destinatario que nadie abrió todavía (`GET /api/share?unopened=1`, `olderThanHours` opcional): "¿quién no abrió la propuesta?" | read |
 | `outbox_set_page_password` | Poner o sacar la contraseña de una página | write |
 | `outbox_create_grant` | Dar acceso a otro usuario (`view` o `comment`) | write |
 | `outbox_revoke_share` | Revocar un share link | ⚠️ destructivo |

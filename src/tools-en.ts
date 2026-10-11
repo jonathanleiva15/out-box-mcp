@@ -320,7 +320,7 @@ export const TOOL_TEXT_EN: Record<string, ToolTextEn> = {
   outbox_create_share: {
     title: "Outbox: create a share link",
     description:
-      "Creates a share link (share token) for a page or folder, with optional expiry, recipient name and password. Anyone with the link (and the password, if set) can open it. Returns { token, url, expiresAt, passphraseProtected, recipient }.",
+      "Creates a share link (share token) for a page or folder, with optional expiry, recipient name and password. Anyone with the link (and the password, if set) can open it. With a recipient on a page, you are reminded after 48 hours if the link is still unopened (remindIfUnopenedHours; null disables it); renewOnOpen keeps the link alive while the recipient keeps opening it. Returns { token, url, expiresAt, passphraseProtected, recipient, remindAt, renewOnOpen }.",
     params: {
       resource: "Slug/path of the page or folder to share",
       resourceType: "post (a page) or folder",
@@ -329,17 +329,28 @@ export const TOOL_TEXT_EN: Record<string, ToolTextEn> = {
         "Who the link is for (e.g. 'Laura · Acme'). One link per person: each open is recorded under that name in outbox_page_views",
       passphrase:
         "Optional password (4-256 characters) the recipient must enter to open the link. Stored hashed; send it to the recipient through another channel",
+      remindIfUnopenedHours:
+        "Hours (1-336) after which, if nobody has opened the link, you get an email (and a Slack DM if Slack is connected). null = no reminder. Omitted: 48 when `recipient` is set and the resource is a page; otherwise no reminder",
+      renewOnOpen:
+        "true = each open moves the expiry to now + expiresInDays (capped at 90 days after creation and at the issuing key's expiry). Requires expiresInDays. Default false",
     },
   },
   outbox_list_shares: {
     title: "Outbox: list share links",
-    description: "Lists the active share links of the connected account. Read-only.",
+    description:
+      "Lists the active share links of the connected account, each with recipient, title, url, opened/opens, remindAt and renewOnOpen. Read-only.",
   },
   outbox_revoke_share: {
     title: "Outbox: revoke a share link",
     description:
       "Revokes a share link by its token (DELETE /api/share/:token); the link stops working immediately and cannot be reactivated. Take the token from outbox_create_share or outbox_list_shares.",
     params: { token: "Share token to revoke (32 hex characters)" },
+  },
+  outbox_unopened_links: {
+    title: "Outbox: links nobody has opened",
+    description:
+      "Lists your active share links (not revoked, not expired) that nobody has opened yet (GET /api/share?unopened=1). Meant for per-recipient links (created with `recipient` in outbox_create_share): answers \"who hasn't opened the proposal?\". Each item has recipient, title, url, createdAt, expiresAt, remindAt and renewOnOpen. With an agent key that only reads opens (views), token and url come back null (redacted: true). Read-only.",
+    params: { olderThanHours: "Only links created more than N hours ago (e.g. 48). Omitted = every link still unopened" },
   },
   outbox_page_views: {
     title: "Outbox: who opened a page",

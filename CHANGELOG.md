@@ -12,6 +12,8 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 - `outbox_create_share` acepta `passphrase` (contraseña del link). Antes se descartaba en silencio y el link quedaba abierto.
 - `outbox_page_views` pasa al toolset `core` y funciona con cualquier key que pueda leer la página (requiere el worker con la mesa del 2026-10-04).
 - Textos en inglés para `outbox_create_share`, `outbox_list_shares`, `outbox_revoke_share` y `outbox_page_views`, así el connector remoto los puede exponer.
+- `outbox_create_share` acepta `remindIfUnopenedHours` (1-336 o `null` para apagarlo; el back usa 48 h por default si hay `recipient` y es una página) y `renewOnOpen` (cada apertura corre la expiración). Sin ellos no se mandan y rige el default del back. La respuesta suma `remindAt` y `renewOnOpen`.
+- Nueva `outbox_unopened_links` (core, read-only, con textos EN): links activos que nadie abrió (`GET /api/share?unopened=1`, `olderThanHours` opcional), para responder "¿quién no abrió la propuesta?". README: 77 tools, default 32. Requiere el worker con los campos nuevos de `/api/share`.
 
 ## [0.3.1] — 2026-10-03
 

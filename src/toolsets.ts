@@ -106,6 +106,8 @@ export const TOOL_TOOLSET: Record<string, Toolset> = {
   // Señales de una página publicada: quién la abrió (lo completado se lee con outbox_page_data).
   // Mesa 2026-10-04: "¿lo abrió el cliente?" es parte del loop básico (read-only).
   outbox_page_views: "core",
+  // Mismo pedido visto desde los links: "¿quién no abrió la propuesta?" (read-only).
+  outbox_unopened_links: "sharing",
   // automation
   outbox_webhook_events: "automation",
   outbox_create_webhook: "automation",
