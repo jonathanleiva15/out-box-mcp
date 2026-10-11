@@ -820,6 +820,9 @@ export function describeError(e: unknown): StructuredError {
       // (worker lib/limit-response.ts). Si viene, va tal cual (acotado); si no, el genérico.
       const backFix = typeof b?.fix === "string" && b.fix.trim() ? b.fix.trim().slice(0, 1000) : undefined;
       const link = cta.upgradeUrl ?? cta.ctaUrl;
+      // Marca para el remoto (errors-en.ts): este `fix` es el del back (en inglés) y se
+      // puede pasar tal cual; el genérico de abajo está en español y el remoto lo reescribe.
+      if (backFix) base.fixSource = "backend";
       base.fix =
         backFix ??
         (cta.error === "rate_limited"
