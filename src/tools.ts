@@ -1181,7 +1181,7 @@ export function registerOutboxTools(
         "Publica una página SIN cuenta: solo existe cuando este server no tiene OUTBOX_API_KEY. Queda en un link que ve cualquiera que tenga la URL y vence a las 72 h; no entra en ninguna biblioteca. " +
         "Devuelve url, expiresAt, claimUrl y `message` para el humano: pasale el claimUrl (no el token suelto) para que la guarde en su cuenta antes de que venza. " +
         "Nunca publiques así contenido con datos privados, personales o credenciales. " +
-        "Límites: 5 por hora y 20 por día por IP; 2 MiB de HTML o 256 KiB de markdown. Ante 429 esperá retryAfter, sin reintentar en loop.",
+        "Límites: 2 por hora y 3 por día por IP (5 por día por red); 2 MiB de HTML o 256 KiB de markdown. Ante 429 esperá retryAfter, sin reintentar en loop.",
       inputSchema: {
         html: z.string().min(1).optional().describe("HTML crudo (máx 2 MiB). Excluyente con markdown"),
         markdown: z

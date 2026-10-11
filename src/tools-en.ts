@@ -359,7 +359,7 @@ export const TOOL_TEXT_EN: Record<string, ToolTextEn> = {
       "Publishes a page WITHOUT an account; only available when this server has no OUTBOX_API_KEY. The page lives at a link anyone with the URL can open and expires after 72 hours; it is not added to any library. " +
       "Returns url, expiresAt, claimUrl and a `message` for the human: give them the claimUrl (not the bare token) so they can save the page to their account before it expires. " +
       "Never publish private, personal or credential data this way. " +
-      "Limits: 5 per hour and 20 per day per IP; 2 MiB of HTML or 256 KiB of markdown. On 429 wait retryAfter; do not retry in a loop.",
+      "Limits: 2 per hour and 3 per day per IP (5 per day per network); 2 MiB of HTML or 256 KiB of markdown. On 429 wait retryAfter; do not retry in a loop.",
     params: {
       html: "Raw HTML (max 2 MiB). Mutually exclusive with markdown",
       markdown: "Markdown source (max 256 KiB), rendered server-side to safe HTML. Mutually exclusive with html",

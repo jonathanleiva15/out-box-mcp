@@ -103,7 +103,7 @@ describe("sin credencial", () => {
     const r = await h.call(TOOL, { html: "<p>hola</p>" });
     assert.equal(r.isError, true);
     assert.match(r.text, /^Error 429 \(sin cuenta\)/);
-    assert.match(r.text, /5 por hora y 20 por día/);
+    assert.match(r.text, /2 por hora y 3 por día por IP, 5 por día por red/);
     assert.match(r.text, /~1800s/);
     assert.match(r.text, /OUTBOX_API_KEY/);
     assert.doesNotMatch(r.text, /plan/);

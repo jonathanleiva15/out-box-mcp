@@ -82,7 +82,7 @@ key no aparece: el agente publica en la biblioteca del usuario con `outbox_publi
 - Devuelve `url`, `expiresAt`, `ttlSeconds`, `claimUrl` y `message`, un texto listo para el humano
   ("Abrí este link para guardarla en tu cuenta antes de <fecha>: <claimUrl>"). El `claimToken` no se
   devuelve suelto: ya viaja en el fragmento del `claimUrl`, que es lo único que el humano necesita.
-- Límites: 5 por hora y 20 por día por IP (más un tope global diario); 2 MiB de HTML o 256 KiB de
+- Límites: 2 por hora y 3 por día por IP, 5 por día por red (más un tope global diario); 2 MiB de HTML o 256 KiB de
   markdown. `429` sale con la espera (`Retry-After`) y la sugerencia de crear una cuenta; `503 anon_paused`
   avisa que la publicación sin cuenta está pausada; `403 anon_publish_disabled`, que no está habilitada.
 - **Nunca** publiques sin cuenta contenido con datos privados, personales o credenciales.

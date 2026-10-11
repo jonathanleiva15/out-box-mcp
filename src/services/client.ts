@@ -767,7 +767,7 @@ const PRIVATE_READ_ANY_OF = ["list", "admin:self"];
 export const ANON_PUBLISH_PATH = "/api/anon/publish";
 
 /** Topes del publish sin cuenta (worker handlers/anon.ts, spec de drafts anónimos). */
-const ANON_LIMITS_TEXT = "5 por hora y 20 por día por IP, más un tope global diario";
+const ANON_LIMITS_TEXT = "2 por hora y 3 por día por IP, 5 por día por red, más un tope global diario";
 const ANON_ACCOUNT_HINT =
   "Para publicar sin estos límites (y en la biblioteca del usuario), el usuario puede crear una cuenta en out-box.dev y configurar OUTBOX_API_KEY.";
 
