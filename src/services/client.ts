@@ -54,6 +54,9 @@ export const PLAN_LIMIT_CODES: ReadonlySet<string> = new Set([
   "keys_limit",
   "html_too_large",
   "storage_limit",
+  "schedule_limit",
+  "webhook_limit",
+  "org_limit",
 ]);
 
 /** CTA de upgrade estructurado que el MCP le devuelve al agente. */
@@ -67,6 +70,24 @@ export interface UpgradeCta {
   upgradeTo: string | null;
   /** Página de pricing; null = no hay upgrade posible. */
   ctaUrl: string | null;
+  /**
+   * Link directo al plan que levanta este límite (worker, 2026-10-11:
+   * `https://out-box.dev/pricing?from=limit&plan=<tier>`). Solo https de out-box.dev.
+   */
+  upgradeUrl?: string;
+}
+
+/** Acepta solo un link https a out-box.dev (es texto del back que el agente le muestra al usuario). */
+function safeUpgradeUrl(v: unknown): string | undefined {
+  if (typeof v !== "string" || v.length > 300) return undefined;
+  try {
+    const u = new URL(v);
+    return u.protocol === "https:" && (u.hostname === "out-box.dev" || u.hostname.endsWith(".out-box.dev"))
+      ? u.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -88,6 +109,7 @@ export function extractUpgradeCta(body: OutboxErrorBody | null): UpgradeCta | nu
     tier: typeof body.tier === "string" ? body.tier : null,
     upgradeTo: typeof body.upgradeTo === "string" ? body.upgradeTo : null,
     ctaUrl: typeof body.ctaUrl === "string" ? body.ctaUrl : null,
+    ...(safeUpgradeUrl(body.upgradeUrl) ? { upgradeUrl: safeUpgradeUrl(body.upgradeUrl) } : {}),
   };
 }
 
@@ -103,8 +125,8 @@ function formatPlanLimit(status: number, cta: UpgradeCta, retryAfter?: number, m
       ? `Error ${status}: límite de uso del plan alcanzado (rate_limited)${retryAfter ? `, reintentá en ~${retryAfter}s` : ""}. No reintentes antes de ese plazo ni en loop.`
       : `Error ${status}: límite del plan alcanzado (${cta.error}). No es un problema de permisos/scope de la key: cambiar de key no lo resuelve.`;
   const action =
-    cta.upgradeTo && cta.ctaUrl
-      ? ` Para más cuota, el usuario puede subir a ${cta.upgradeTo}: ${cta.ctaUrl}`
+    cta.upgradeTo && (cta.upgradeUrl ?? cta.ctaUrl)
+      ? ` Para más cuota, el usuario puede subir a ${cta.upgradeTo}: ${cta.upgradeUrl ?? cta.ctaUrl}`
       : " El plan actual ya es el más alto para este límite (no hay upgrade que lo levante).";
   return `${head}${action}${message ? ` Detalle del back: ${message}` : ""}\nupgradeCta: ${JSON.stringify(cta)}`;
 }
@@ -844,12 +866,17 @@ export function describeError(e: unknown): StructuredError {
       base.upgradeCta = cta;
       if (typeof b?.retryAfter === "number") base.retryAfter = b.retryAfter;
       base.retryable = cta.error === "rate_limited";
+      // El back ya arma un `fix` con el reset y lo que desbloquea el plan siguiente
+      // (worker lib/limit-response.ts). Si viene, va tal cual (acotado); si no, el genérico.
+      const backFix = typeof b?.fix === "string" && b.fix.trim() ? b.fix.trim().slice(0, 1000) : undefined;
+      const link = cta.upgradeUrl ?? cta.ctaUrl;
       base.fix =
-        cta.error === "rate_limited"
-          ? `Esperá${base.retryAfter ? ` ~${base.retryAfter}s` : ""} antes de reintentar (no en loop).`
-          : cta.upgradeTo && cta.ctaUrl
-            ? `Límite del plan: el usuario puede subir a ${cta.upgradeTo} (${cta.ctaUrl}).`
-            : "Límite del plan en el tier más alto: reducí el uso (borrar, compactar) o esperá el reset.";
+        backFix ??
+        (cta.error === "rate_limited"
+          ? `Esperá${base.retryAfter ? ` ~${base.retryAfter}s` : ""} antes de reintentar (no en loop).${cta.upgradeTo && link ? ` Para más cuota: ${link}` : ""}`
+          : cta.upgradeTo && link
+            ? `Límite del plan: el usuario puede subir a ${cta.upgradeTo} (${link}).`
+            : "Límite del plan en el tier más alto: reducí el uso (borrar, compactar) o esperá el reset.");
       return base;
     }
     if (code === "private_read_scope_required") {
