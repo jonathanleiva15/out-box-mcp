@@ -7,14 +7,14 @@
     "url": "https://github.com/jonathanleiva15/out-box-mcp",
     "source": "github"
   },
-  "version": "0.3.1",
+  "version": "0.4.0",
   "websiteUrl": "https://out-box.dev",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "@out-box/mcp",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
@@ -22,8 +22,8 @@
       "environmentVariables": [
         {
           "name": "OUTBOX_API_KEY",
-          "description": "Outbox API key (Bearer `outbox_*`). Without it (or the CLI's ~/.outboxrc) the server still starts and every tool asks you to configure it.",
-          "isRequired": true,
+          "description": "Outbox API key (Bearer `outbox_*`). Without it (or the CLI's ~/.outboxrc) the server still starts: library tools ask you to configure it and outbox_publish_anonymous publishes 72-hour pages without an account.",
+          "isRequired": false,
           "isSecret": true
         },
         {

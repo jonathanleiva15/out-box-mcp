@@ -6,6 +6,13 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-10-11
+
+- **Nueva `outbox_publish_anonymous`** (core): publica `html` o `markdown` sin cuenta (`POST /api/anon/publish`, sin Bearer; `title` y `model` opcionales). Se registra **solo cuando el server arranca sin credencial**; con key no aparece. Devuelve `url`, `expiresAt`, `ttlSeconds`, `claimUrl` y `message`, un texto para el humano con el link para guardarla en su cuenta antes de que venza (72 h). El `claimToken` no se devuelve suelto (viaja en el fragmento del `claimUrl`). Textos en inglés y español. Requiere el worker de drafts anónimos (tanda 1, todavía sin desplegar).
+- Errores del publish sin cuenta con mensaje propio: `429` (límites por IP y global, con `Retry-After` y la sugerencia de crear una cuenta), `503 anon_paused`, `403 anon_publish_disabled` y `413` (2 MiB de HTML o 256 KiB de markdown; no es un límite de plan).
+- Sin credencial, las `instructions` suman la regla del modo sin cuenta (pasarle al humano el `claimUrl`, nunca publicar datos privados).
+- `KEYLESS_ONLY_TOOLS` en `src/toolsets.ts`. El remoto siempre tiene credencial y no registra estas tools.
+- `server.json`: `OUTBOX_API_KEY` deja de ser obligatoria (sin ella se puede publicar sin cuenta).
 - `outbox_me` y `outbox_capabilities` suman `mcpUpdate` (`current`, `latest`, `install`, `notice`) cuando `/api/capabilities` anuncia un `clients.mcp.latest` mayor que el paquete instalado, para que el agente le avise al usuario una vez. Solo el stdio; el remoto no lo muestra.
 - `409 seat_limit` (Team con 10 publicadores, out-box #42): error con `fix` accionable (sacar a alguien o escribir a hello@out-box.dev), sin reintento.
 - Los errores de límite de plan marcan `fixSource: "backend"` cuando el `fix` vino del back, así el MCP remoto lo pasa tal cual en vez de reescribirlo.

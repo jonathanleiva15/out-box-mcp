@@ -64,7 +64,7 @@ import {
 } from "./comments.js";
 import { annotateIncomingGrants, annotateTeams } from "./inbound.js";
 import { annotateAgentsRegistry, annotateInstantiateResult } from "./agents.js";
-import { isToolEnabled, type Toolset } from "./toolsets.js";
+import { KEYLESS_ONLY_TOOLS, isToolEnabled, type Toolset } from "./toolsets.js";
 import { ignoredAttributesNoticeEn, localizeTool, renderNoticeEn, secretsNoticeEn, thirdPartyPullNoticeEn } from "./tools-en.js";
 import { registerSandboxPlatformTools } from "./tools/sandbox-platform.js";
 import { PULL_CHUNK_DEFAULT, PULL_CHUNK_MAX, PULL_CHUNK_MIN, offsetOutOfRange, sliceContent } from "./pull-chunks.js";
@@ -75,6 +75,7 @@ import {
   PREVIEW_MAX_CHARS,
 } from "./apps/page-viewer.js";
 import {
+  ANON_PUBLISH_PATH,
   OutboxClient,
   OutboxApiError,
   OutboxToolError,
@@ -343,6 +344,43 @@ export function withIdempotencyKey<T>(res: T, key: string): T | (T & { idempoten
   return { ...(res as T & object), idempotencyKey: key };
 }
 
+/** `2026-10-14T12:00:00.000Z` → `2026-10-14 12:00 UTC` (igual en es/en). null si no es una fecha. */
+function formatUtc(iso: unknown): string | null {
+  if (typeof iso !== "string") return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+/**
+ * Resultado de outbox_publish_anonymous: solo los campos del contrato que el agente
+ * necesita (sin claimToken: ya viaja en el fragmento del claimUrl) + `message` listo
+ * para mostrarle al humano.
+ */
+export function anonPublishResult(res: Record<string, unknown>, lang?: "es" | "en"): Record<string, unknown> {
+  const pick = (k: string): unknown => (res && typeof res === "object" ? res[k] : undefined);
+  const url = typeof pick("url") === "string" ? (pick("url") as string) : undefined;
+  const claimUrl = typeof pick("claimUrl") === "string" ? (pick("claimUrl") as string) : undefined;
+  const expiresAt = typeof pick("expiresAt") === "string" ? (pick("expiresAt") as string) : undefined;
+  const when = formatUtc(expiresAt);
+  const out: Record<string, unknown> = {};
+  if (typeof pick("id") === "string") out.id = pick("id");
+  if (url) out.url = url;
+  if (expiresAt) out.expiresAt = expiresAt;
+  if (typeof pick("ttlSeconds") === "number") out.ttlSeconds = pick("ttlSeconds");
+  if (claimUrl) out.claimUrl = claimUrl;
+  const parts: string[] = [];
+  if (lang === "en") {
+    if (url) parts.push(`Published without an account: ${url} (anyone with the link can see it${when ? ` until ${when}` : ""}).`);
+    if (claimUrl) parts.push(`Open this link to save it to your Outbox account${when ? ` before ${when}` : ""}: ${claimUrl}`);
+  } else {
+    if (url) parts.push(`Publicada sin cuenta: ${url} (la ve cualquiera con el link${when ? ` hasta el ${when}` : ""}).`);
+    if (claimUrl) parts.push(`Abrí este link para guardarla en tu cuenta${when ? ` antes del ${when}` : ""}: ${claimUrl}`);
+  }
+  if (parts.length) out.message = parts.join(" ");
+  return out;
+}
+
 /**
  * Registra las tools de Outbox en `host`. Devuelve los nombres registrados, en orden
  * de registro (fijo: `tools/list` determinístico, SHOULD de la spec 2026-07-28).
@@ -363,6 +401,8 @@ export function registerOutboxTools(
   const registerTool = <S extends ToolShape>(name: string, cfg: OutboxToolConfig<S>, cb: OutboxToolHandler<S>): void => {
     if (!isToolEnabled(name, opts.toolsets)) return;
     if (opts.include && !opts.include(name)) return;
+    // Drafts anónimos (0.4.0): las tools sin cuenta solo existen si NO hay credencial.
+    if (KEYLESS_ONLY_TOOLS.has(name) && client.hasCredential) return;
     const finalCfg = opts.lang === "en" ? localizeTool(name, cfg) : cfg;
     host.registerTool(name, finalCfg as unknown as OutboxToolConfig, cb as unknown as OutboxToolHandler);
     registered.push(name);
@@ -1162,6 +1202,55 @@ export function registerOutboxTools(
           ignoredAttributesNotice(res, opts.lang),
           secretsWarningNotice(res, opts.lang),
         ]);
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  // ── Tools: sin cuenta (drafts anónimos, 0.4.0) ─────────────────────────────────
+  // Solo se registra SIN credencial (KEYLESS_ONLY_TOOLS). Contrato del worker:
+  // POST /api/anon/publish (sin auth) → 201 { id, url, expiresAt, ttlSeconds,
+  // claimToken, claimUrl }. El claimToken NO se devuelve suelto: ya viaja en el
+  // fragmento del claimUrl, que es lo único que el humano necesita.
+  registerTool(
+    "outbox_publish_anonymous",
+    {
+      title: "Outbox: publicar sin cuenta (72 h)",
+      description:
+        "Publica una página SIN cuenta: solo existe cuando este server no tiene OUTBOX_API_KEY. Queda en un link que ve cualquiera que tenga la URL y vence a las 72 h; no entra en ninguna biblioteca. " +
+        "Devuelve url, expiresAt, claimUrl y `message` para el humano: pasale el claimUrl (no el token suelto) para que la guarde en su cuenta antes de que venza. " +
+        "Nunca publiques así contenido con datos privados, personales o credenciales. " +
+        "Límites: 2 por hora y 3 por día por IP (5 por día por red); 2 MiB de HTML o 256 KiB de markdown. Ante 429 esperá retryAfter, sin reintentar en loop.",
+      inputSchema: {
+        html: z.string().min(1).optional().describe("HTML crudo (máx 2 MiB). Excluyente con markdown"),
+        markdown: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Markdown fuente (máx 256 KiB), renderizado a HTML seguro en el back. Excluyente con html"),
+        title: z.string().max(120).optional().describe("Título de la página (opcional, máx 120)"),
+        model: MODEL.optional().describe("Id del modelo que generó el contenido (opcional sin cuenta, ej. 'claude-opus-4-8')"),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ html, markdown, title, model }) => {
+      try {
+        if (html !== undefined && markdown !== undefined) {
+          throw new OutboxToolError("conflicting_content", "Mandaste html y markdown a la vez.", "Mandá solo uno de los dos.");
+        }
+        if (html === undefined && markdown === undefined) {
+          throw new OutboxToolError("missing_content", "Falta el contenido.", "Mandá `html` o `markdown` (no vacío).");
+        }
+        const res = await client.reqPublic<Record<string, unknown>>(ANON_PUBLISH_PATH, {
+          method: "POST",
+          body: {
+            ...(html !== undefined ? { html } : { markdown }),
+            ...(title !== undefined ? { title } : {}),
+            ...(model !== undefined ? { model } : {}),
+          },
+        });
+        return ok(anonPublishResult(res, opts.lang));
       } catch (e) {
         return fail(e);
       }

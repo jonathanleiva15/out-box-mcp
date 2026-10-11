@@ -68,7 +68,25 @@ La key **nunca** se loguea. El server **no** escribe `~/.outboxrc` (eso lo hace 
 remotas/headless el agente **no puede hacer login interactivo** → por eso la auth es por key.
 
 **Sin credencial el server igual arranca**: cada tool que necesita auth responde un error accionable
-(`missing_credential`: "configurá OUTBOX_API_KEY…"). `outbox_capabilities` (público) funciona igual.
+(`missing_credential`: "configurá OUTBOX_API_KEY…"). `outbox_capabilities` (público) funciona igual, y
+se suma `outbox_publish_anonymous` para publicar sin cuenta (ver abajo).
+
+### Sin cuenta: `outbox_publish_anonymous` (0.4.0)
+
+Solo se registra cuando el server arrancó **sin** credencial (ni `OUTBOX_API_KEY` ni `~/.outboxrc`). Con
+key no aparece: el agente publica en la biblioteca del usuario con `outbox_publish`.
+
+- Input: `html` **o** `markdown` (excluyentes), `title` opcional (máx 120) y `model` opcional.
+- Pega a `POST /api/anon/publish` sin Bearer. La página queda en `https://out-box.dev/p/<id>`, la ve
+  cualquiera que tenga el link y **vence a las 72 h**. No entra en ninguna biblioteca.
+- Devuelve `url`, `expiresAt`, `ttlSeconds`, `claimUrl` y `message`, un texto listo para el humano
+  ("Abrí este link para guardarla en tu cuenta antes de <fecha>: <claimUrl>"). El `claimToken` no se
+  devuelve suelto: ya viaja en el fragmento del `claimUrl`, que es lo único que el humano necesita.
+- Límites: 2 por hora y 3 por día por IP, 5 por día por red (más un tope global diario); 2 MiB de HTML o 256 KiB de
+  markdown. `429` sale con la espera (`Retry-After`) y la sugerencia de crear una cuenta; `503 anon_paused`
+  avisa que la publicación sin cuenta está pausada; `403 anon_publish_disabled`, que no está habilitada.
+- **Nunca** publiques sin cuenta contenido con datos privados, personales o credenciales.
+- El connector remoto (`mcp.out-box.dev`) siempre corre con credencial: no la expone.
 
 ### Variables de entorno
 
@@ -76,7 +94,7 @@ Todas son opcionales salvo la credencial (`OUTBOX_API_KEY` **o** `~/.outboxrc`).
 
 | Variable | Default | Para qué |
 |---|---|---|
-| `OUTBOX_API_KEY` | — | La API key `outbox_*` (recomendado). Si está, tiene precedencia sobre `~/.outboxrc`. |
+| `OUTBOX_API_KEY` | — | La API key `outbox_*` (recomendado). Si está, tiene precedencia sobre `~/.outboxrc`. Sin ninguna credencial solo se puede publicar sin cuenta (`outbox_publish_anonymous`). |
 | `OUTBOX_USER` | (de `~/.outboxrc` o `/api/me`) | Username del owner, para defaultear el arg `user` de las tools sin pegarle a `/api/me`. |
 | `OUTBOX_RC` | `~/.outboxrc` | Path alternativo al archivo de credencial que escribe el CLI (útil en entornos con otro `HOME`). |
 | `OUTBOX_TOOLSETS` | `core,comments,sharing` | Qué grupos de tools se registran: `core`, `comments`, `library`, `sharing`, `keys`, `teams`, `automation`, `apps` o `all`. `core` siempre queda activo. |
@@ -94,7 +112,8 @@ instrucciones**, confirmar antes de toda tool destructiva, cómo leer los errore
 
 ## Tools disponibles (77)
 
-77 tools en 8 toolsets (conteo del 2026-10-10). Por default se registran **core**, **comments** y
+77 tools en 8 toolsets (conteo del 2026-10-10), más `outbox_publish_anonymous`, que solo aparece sin
+credencial (ver "Sin cuenta"). Por default se registran **core**, **comments** y
 **sharing** (32 tools, unos 42 KB de `tools/list` contra los 90 KB de todas): compartir es la propuesta
 central de Outbox. El resto se habilita con `OUTBOX_TOOLSETS`. 35 son read-only y
 **16 llevan `destructiveHint: true`** (los clientes que gatean confirmación por esa annotation van a

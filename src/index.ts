@@ -55,7 +55,7 @@ const client = new OutboxClient(config?.apiKey ?? null);
 const toolsets = parseToolsets(process.env.OUTBOX_TOOLSETS);
 const server = new McpServer(
   { name: SERVER_NAME, version: SERVER_VERSION },
-  { instructions: buildInstructions(toolsets.enabled, SITE_BASE) },
+  { instructions: buildInstructions(toolsets.enabled, SITE_BASE, { keyless: config === null }) },
 );
 
 /** I/O local confinado a OUTBOX_FILES_DIR (src/files.ts), para los args `file_path`. */

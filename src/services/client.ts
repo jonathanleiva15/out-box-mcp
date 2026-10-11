@@ -441,7 +441,10 @@ export class OutboxClient {
     return { text, headers: res.headers };
   }
 
-  /** GET a un endpoint PÚBLICO sin Bearer (funciona aunque el server no tenga credencial). */
+  /**
+   * Request a un endpoint PÚBLICO sin Bearer (funciona aunque el server no tenga
+   * credencial): GET /api/capabilities y, desde 0.4.0, POST /api/anon/publish.
+   */
   async reqPublic<T>(path: string, init: ReqInit = {}): Promise<T> {
     const text = await (await this.send(path, init, "application/json", { anonymous: true })).text();
     return (text ? (JSON.parse(text) as T) : ({} as T));
@@ -760,6 +763,51 @@ const SIZE_LIMIT_FIELDS = ["maxBytes", "limit", "bytes"] as const;
 /** Scopes que habilitan leer privados propios (worker resolvePrivateRead). */
 const PRIVATE_READ_ANY_OF = ["list", "admin:self"];
 
+/** Path del publish sin cuenta (worker handlers/anon.ts). */
+export const ANON_PUBLISH_PATH = "/api/anon/publish";
+
+/** Topes del publish sin cuenta (worker handlers/anon.ts, spec de drafts anónimos). */
+const ANON_LIMITS_TEXT = "2 por hora y 3 por día por IP, 5 por día por red, más un tope global diario";
+const ANON_ACCOUNT_HINT =
+  "Para publicar sin estos límites (y en la biblioteca del usuario), el usuario puede crear una cuenta en out-box.dev y configurar OUTBOX_API_KEY.";
+
+/**
+ * Errores del publish sin cuenta con causa conocida (drafts anónimos). Van antes que los
+ * genéricos: el 413 html_too_large de acá NO es de plan (no hay plan) y el 429 no trae
+ * bloque CTA. null = sin caso propio (cae al genérico por status).
+ */
+function describeAnonPublishError(e: OutboxApiError, base: StructuredError): StructuredError | null {
+  if (!e.path.startsWith(ANON_PUBLISH_PATH)) return null;
+  const b = e.body;
+  const retryAfter = e.retryAfter ?? (typeof b?.retryAfter === "number" ? b.retryAfter : undefined);
+  if (e.status === 429) {
+    base.retryable = true;
+    if (retryAfter !== undefined) base.retryAfter = retryAfter;
+    base.fix = `Límite de publicaciones sin cuenta alcanzado (${ANON_LIMITS_TEXT}). Esperá${
+      retryAfter !== undefined ? ` ~${retryAfter}s (Retry-After)` : " antes de reintentar"
+    }; no reintentes en loop. ${ANON_ACCOUNT_HINT}`;
+    return base;
+  }
+  if (e.status === 503 || base.code === "anon_paused") {
+    base.retryable = true;
+    if (retryAfter !== undefined) base.retryAfter = retryAfter;
+    base.fix = `La publicación sin cuenta está pausada temporalmente en Outbox (anon_paused); no es un problema del contenido. Probá más tarde${
+      retryAfter !== undefined ? ` (~${retryAfter}s)` : ""
+    }, sin reintentar en loop. ${ANON_ACCOUNT_HINT}`;
+    return base;
+  }
+  if (base.code === "anon_publish_disabled") {
+    base.fix = `La publicación sin cuenta no está habilitada en este servidor de Outbox. No reintentes. ${ANON_ACCOUNT_HINT}`;
+    return base;
+  }
+  if (e.status === 413) {
+    base.fix =
+      "Sin cuenta el tope es 2 MiB de HTML o 256 KiB de markdown. Achicá el contenido (sacá imágenes embebidas en base64) o publicalo con una cuenta (OUTBOX_API_KEY).";
+    return base;
+  }
+  return null;
+}
+
 /** Clasifica cualquier error en un objeto estable { code, retryable, fix, ... }. */
 export function describeError(e: unknown): StructuredError {
   if (e instanceof MissingCredentialError) {
@@ -811,6 +859,8 @@ export function describeError(e: unknown): StructuredError {
     if (typeof b?.requestId === "string" && /^[A-Za-z0-9_.:-]{1,128}$/.test(b.requestId)) base.requestId = b.requestId;
     if (typeof b?.missingScope === "string") base.missingScope = b.missingScope;
     if (Array.isArray(b?.missingAnyOf)) base.missingAnyOf = b.missingAnyOf;
+    const anon = describeAnonPublishError(e, base);
+    if (anon) return anon;
     const cta = extractUpgradeCta(b);
     if (cta) {
       base.upgradeCta = cta;
@@ -1071,6 +1121,14 @@ export function formatError(e: unknown): string {
   if (e instanceof OutboxApiError) {
     const b = e.body;
     const backMessage = typeof b?.message === "string" ? b.message : undefined;
+    // Drafts anónimos: 429 / 503 / 403 / 413 del publish sin cuenta con mensaje propio.
+    if (e.path.startsWith(ANON_PUBLISH_PATH)) {
+      const d = describeError(e);
+      if (e.status === 429) return `Error 429 (sin cuenta): ${d.fix}`;
+      if (e.status === 503 || d.code === "anon_paused") return `Error ${e.status} (anon_paused): ${d.fix}`;
+      if (d.code === "anon_publish_disabled") return `Error 403 (anon_publish_disabled): ${d.fix}`;
+      if (e.status === 413) return `Error 413 (${d.code}): el contenido es demasiado grande para publicar sin cuenta. ${d.fix}`;
+    }
     // Límite de plan (403/413/429 con bloque CTA) ANTES que el switch por status:
     // un 403 daily_docs_limit / keys_limit NO es "falta scope".
     const cta = extractUpgradeCta(b);

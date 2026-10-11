@@ -126,6 +126,17 @@ export const TOOL_TOOLSET: Record<string, Toolset> = {
   outbox_page_data: "library",
 };
 
+/**
+ * Tools que se registran SOLO sin credencial (ni OUTBOX_API_KEY ni ~/.outboxrc). Con key
+ * el agente publica en la biblioteca del usuario con outbox_publish; ofrecerle además
+ * un publish anónimo y público lo invitaba a sacar contenido de la cuenta. El remoto
+ * siempre corre con credencial, así que nunca las expone.
+ */
+export const KEYLESS_ONLY_TOOLS: ReadonlySet<string> = new Set(["outbox_publish_anonymous"]);
+// Van FUERA de TOOL_TOOLSET a propósito: el remoto (out-box-mcp-remote) arma su
+// superficie curada a partir de TOOL_TOOLSET y nunca las registra (siempre tiene
+// credencial). No dependen de OUTBOX_TOOLSETS: se registran siempre que no haya key.
+
 export interface ParsedToolsets {
   enabled: Set<Toolset>;
   /** Nombres pedidos que no existen (se ignoran y se avisan por stderr). */
@@ -156,6 +167,7 @@ export function parseToolsets(raw: string | undefined): ParsedToolsets {
 
 /** ¿La tool está en un toolset activo? Tira si la tool no está clasificada. */
 export function isToolEnabled(name: string, enabled: ReadonlySet<Toolset>): boolean {
+  if (KEYLESS_ONLY_TOOLS.has(name)) return true;
   const ts = TOOL_TOOLSET[name];
   if (!ts) {
     throw new Error(`La tool ${name} no tiene toolset asignado en src/toolsets.ts (TOOL_TOOLSET).`);

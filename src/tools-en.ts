@@ -352,6 +352,21 @@ export const TOOL_TEXT_EN: Record<string, ToolTextEn> = {
       "Lists your active share links (not revoked, not expired) that nobody has opened yet (GET /api/share?unopened=1). Meant for per-recipient links (created with `recipient` in outbox_create_share): answers \"who hasn't opened the proposal?\". Each item has recipient, title, url, createdAt, expiresAt, remindAt and renewOnOpen. With an agent key that only reads opens (views), token and url come back null (redacted: true). Read-only.",
     params: { olderThanHours: "Only links created more than N hours ago (e.g. 48). Omitted = every link still unopened" },
   },
+  // Solo stdio sin credencial (KEYLESS_ONLY_TOOLS): el remoto nunca la registra.
+  outbox_publish_anonymous: {
+    title: "Outbox: publish without an account (72 h)",
+    description:
+      "Publishes a page WITHOUT an account; only available when this server has no OUTBOX_API_KEY. The page lives at a link anyone with the URL can open and expires after 72 hours; it is not added to any library. " +
+      "Returns url, expiresAt, claimUrl and a `message` for the human: give them the claimUrl (not the bare token) so they can save the page to their account before it expires. " +
+      "Never publish private, personal or credential data this way. " +
+      "Limits: 2 per hour and 3 per day per IP (5 per day per network); 2 MiB of HTML or 256 KiB of markdown. On 429 wait retryAfter; do not retry in a loop.",
+    params: {
+      html: "Raw HTML (max 2 MiB). Mutually exclusive with markdown",
+      markdown: "Markdown source (max 256 KiB), rendered server-side to safe HTML. Mutually exclusive with html",
+      title: "Page title (optional, max 120)",
+      model: "Id of the model that generated the content (optional without an account, e.g. 'claude-opus-4-8')",
+    },
+  },
   outbox_page_views: {
     title: "Outbox: who opened a page",
     description:
