@@ -38,3 +38,10 @@ test("un upgradeUrl que no es de out-box.dev se descarta", () => {
   assert.equal(extractUpgradeCta({ ...body, upgradeUrl: "http://out-box.dev/pricing" }).upgradeUrl, undefined);
   assert.equal(extractUpgradeCta({ ...body, upgradeUrl: 42 }).upgradeUrl, undefined);
 });
+
+test("fixSource marca el fix que vino del back (lo usa el remoto)", () => {
+  assert.equal(describeError(new OutboxApiError(429, body, "/api/publish")).fixSource, "backend");
+  const { fix, ...rest } = body;
+  void fix;
+  assert.equal(describeError(new OutboxApiError(403, { ...rest, error: "keys_limit" }, "/api/keys")).fixSource, undefined);
+});

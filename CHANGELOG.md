@@ -6,6 +6,10 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 
 ## [Unreleased]
 
+- `outbox_me` y `outbox_capabilities` suman `mcpUpdate` (`current`, `latest`, `install`, `notice`) cuando `/api/capabilities` anuncia un `clients.mcp.latest` mayor que el paquete instalado, para que el agente le avise al usuario una vez. Solo el stdio; el remoto no lo muestra.
+- `409 seat_limit` (Team con 10 publicadores, out-box #42): error con `fix` accionable (sacar a alguien o escribir a hello@out-box.dev), sin reintento.
+- Los errores de límite de plan marcan `fixSource: "backend"` cuando el `fix` vino del back, así el MCP remoto lo pasa tal cual en vez de reescribirlo.
+- `outbox_page_data`: la descripción dice que el owner ya recibe un mail cuando completan o cambian el formulario (out-box #46).
 - **sharing entra al default**: `OUTBOX_TOOLSETS` sin definir registra core, comments y sharing (31 tools). Compartir es la propuesta central.
 - README: conteos al día (76 tools; core 18, sharing 8, teams 15).
 - Las tools salen en inglés por default (`OUTBOX_LANG=es` vuelve al español); las que todavía no tienen texto en inglés quedan en español.
