@@ -829,6 +829,13 @@ export function describeError(e: unknown): StructuredError {
             : "Límite del plan en el tier más alto: reducí el uso (borrar, compactar) o esperá el reset.");
       return base;
     }
+    if (code === "seat_limit") {
+      const contact = typeof b?.contact === "string" && /^[^\s@]+@out-box\.dev$/.test(b.contact) ? b.contact : "hello@out-box.dev";
+      if (typeof b?.limit === "number") base.limit = b.limit;
+      if (typeof b?.used === "number") base.used = b.used;
+      base.fix = `The company already has ${typeof b?.limit === "number" ? b.limit : 10} publishers (pending invites included). Do not retry: tell the user to remove someone or write to ${contact} for a bigger plan.`;
+      return base;
+    }
     if (code === "private_read_scope_required") {
       base.missingAnyOf = base.missingAnyOf ?? PRIVATE_READ_ANY_OF;
       base.fix =
