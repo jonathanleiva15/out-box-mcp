@@ -124,7 +124,18 @@ export const TOOL_TOOLSET: Record<string, Toolset> = {
   // sandbox-platform (src/tools/sandbox-platform.ts): vigía de render y datos de página.
   outbox_render_status: "library",
   outbox_page_data: "library",
+  // Sin cuenta (drafts anónimos, 0.4.0): solo se registra cuando el server arrancó SIN
+  // credencial (ver KEYLESS_ONLY_TOOLS). `core` está siempre activo.
+  outbox_publish_anonymous: "core",
 };
+
+/**
+ * Tools que se registran SOLO sin credencial (ni OUTBOX_API_KEY ni ~/.outboxrc). Con key
+ * el agente publica en la biblioteca del usuario con outbox_publish; ofrecerle además
+ * un publish anónimo y público lo invitaba a sacar contenido de la cuenta. El remoto
+ * siempre corre con credencial, así que nunca las expone.
+ */
+export const KEYLESS_ONLY_TOOLS: ReadonlySet<string> = new Set(["outbox_publish_anonymous"]);
 
 export interface ParsedToolsets {
   enabled: Set<Toolset>;

@@ -41,7 +41,7 @@ export const IDEMPOTENT_WRITE_TIMEOUT_MS = 45_000;
 export const DEFAULT_APPEND_MODEL = "outbox-mcp";
 
 export const SERVER_NAME = "outbox-mcp-server";
-export const SERVER_VERSION = "0.3.1";
+export const SERVER_VERSION = "0.4.0";
 /** Versión del contrato del API contra el que está construido este server (MAJOR.MINOR).
  *  Se compara contra `contract` de GET /api/capabilities. */
 export const API_CONTRACT_VERSION = "1.0.0";

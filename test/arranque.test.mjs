@@ -8,7 +8,7 @@ import { test, before, after, describe } from "node:test";
 import assert from "node:assert/strict";
 
 import { startHarness } from "./harness.mjs";
-import { TOOL_TOOLSET } from "../dist/toolsets.js";
+import { KEYLESS_ONLY_TOOLS, TOOL_TOOLSET } from "../dist/toolsets.js";
 
 describe("default (sin OUTBOX_TOOLSETS): core + comments + sharing", () => {
   let h;
@@ -30,7 +30,7 @@ describe("default (sin OUTBOX_TOOLSETS): core + comments + sharing", () => {
     const { tools } = await h.client.listTools();
     const names = tools.map((t) => t.name).sort();
     const expected = Object.entries(TOOL_TOOLSET)
-      .filter(([, ts]) => ts === "core" || ts === "comments" || ts === "sharing")
+      .filter(([n, ts]) => (ts === "core" || ts === "comments" || ts === "sharing") && !KEYLESS_ONLY_TOOLS.has(n))
       .map(([n]) => n)
       .sort();
     assert.deepEqual(names, expected);
@@ -53,7 +53,9 @@ describe("OUTBOX_TOOLSETS=all", () => {
 
   test("registra exactamente las tools clasificadas en TOOL_TOOLSET (ninguna sin toolset)", async () => {
     const { tools } = await h.client.listTools();
-    assert.deepEqual(tools.map((t) => t.name).sort(), Object.keys(TOOL_TOOLSET).sort());
+    // Con key, las tools sin cuenta (KEYLESS_ONLY_TOOLS) no se registran.
+    const expected = Object.keys(TOOL_TOOLSET).filter((n) => !KEYLESS_ONLY_TOOLS.has(n));
+    assert.deepEqual(tools.map((t) => t.name).sort(), expected.sort());
   });
 
   test("las destructivas llevan destructiveHint y las de lectura readOnlyHint", async () => {

@@ -69,6 +69,10 @@ La tabla completa por toolset vive en README.md.
 **Toda tool nueva tiene que estar en `TOOL_TOOLSET` (`src/toolsets.ts`)**: si no, el server tira al
 arrancar (y `test/arranque.test.mjs` falla). Default activo: `core` + `comments`.
 
+**Tools sin cuenta** (`KEYLESS_ONLY_TOOLS` en `src/toolsets.ts`, hoy `outbox_publish_anonymous`): se
+registran SOLO si el cliente no tiene credencial (`client.hasCredential === false`). El remoto siempre
+corre con credencial y nunca las expone, así que no necesitan scope en `out-box-mcp-remote`.
+
 Categorías (la anotación de cada tool en `tools.ts` es la fuente de verdad):
 
 - **read** — `readOnlyHint: true`.

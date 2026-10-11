@@ -6,6 +6,14 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-10-11
+
+- **Nueva `outbox_publish_anonymous`** (core): publica `html` o `markdown` sin cuenta (`POST /api/anon/publish`, sin Bearer; `title` y `model` opcionales). Se registra **solo cuando el server arranca sin credencial**; con key no aparece. Devuelve `url`, `expiresAt`, `ttlSeconds`, `claimUrl` y `message`, un texto para el humano con el link para guardarla en su cuenta antes de que venza (72 h). El `claimToken` no se devuelve suelto (viaja en el fragmento del `claimUrl`). Textos en inglés y español. Requiere el worker de drafts anónimos (tanda 1, todavía sin desplegar).
+- Errores del publish sin cuenta con mensaje propio: `429` (límites por IP y global, con `Retry-After` y la sugerencia de crear una cuenta), `503 anon_paused`, `403 anon_publish_disabled` y `413` (2 MiB de HTML o 256 KiB de markdown; no es un límite de plan).
+- Sin credencial, las `instructions` suman la regla del modo sin cuenta (pasarle al humano el `claimUrl`, nunca publicar datos privados).
+- `KEYLESS_ONLY_TOOLS` en `src/toolsets.ts`. El remoto siempre tiene credencial y no registra estas tools.
+- `server.json`: `OUTBOX_API_KEY` deja de ser obligatoria (sin ella se puede publicar sin cuenta).
+
 - **sharing entra al default**: `OUTBOX_TOOLSETS` sin definir registra core, comments y sharing (31 tools). Compartir es la propuesta central.
 - README: conteos al día (76 tools; core 18, sharing 8, teams 15).
 - Las tools salen en inglés por default (`OUTBOX_LANG=es` vuelve al español); las que todavía no tienen texto en inglés quedan en español.

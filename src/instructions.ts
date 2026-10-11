@@ -7,7 +7,7 @@
  */
 import { TOOLSETS, TOOLSET_SUMMARY, type Toolset } from "./toolsets.js";
 
-export function buildInstructions(enabled: Set<Toolset>, siteBase: string): string {
+export function buildInstructions(enabled: Set<Toolset>, siteBase: string, opts: { keyless?: boolean } = {}): string {
   const active = TOOLSETS.filter((t) => enabled.has(t));
   const inactive = TOOLSETS.filter((t) => !enabled.has(t));
   const lines = [
@@ -26,6 +26,11 @@ export function buildInstructions(enabled: Set<Toolset>, siteBase: string): stri
     "8. `model` es obligatorio al publicar y en el primer outbox_append de cada día UTC (si lo omitís en el append, el MCP manda 'outbox-mcp'): el id del modelo que generó el contenido.",
     `9. URL pública de una página: ${siteBase}/<user>/<slug> (privadas solo abren con la sesión del owner).`,
     "10. Secretos: si el resultado de publish/append trae warnings.secrets (o el aviso \"Aviso de secretos\"), el contenido parece incluir credenciales. Avisale al usuario en el acto (tipo y línea, nunca el valor), sugerí rotarlas si la página es o fue pública/unlisted y re-publicá sin ellas. Si no querés que se publique en ese caso, mandá rejectOnSecrets: true (422 secrets_detected, no se escribe nada).",
+    ...(opts.keyless
+      ? [
+          "11. SIN CUENTA: este server arrancó sin OUTBOX_API_KEY. Las tools de la biblioteca van a pedir la key; outbox_publish_anonymous publica sin cuenta en un link público que vence a las 72 h. Pasale al humano el claimUrl (no el token suelto) para que la guarde en su cuenta. Nunca publiques sin cuenta contenido con datos privados, personales o credenciales.",
+        ]
+      : []),
     "",
     `TOOLSETS activos: ${active.map((t) => `${t} (${TOOLSET_SUMMARY[t]})`).join("; ")}.`,
   ];

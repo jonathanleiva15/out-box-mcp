@@ -11,7 +11,7 @@ import { z } from "zod";
 
 import { registerOutboxTools } from "../dist/tools.js";
 import { TOOL_TEXT_EN, paramTextEn } from "../dist/tools-en.js";
-import { TOOL_TOOLSET, TOOLSETS } from "../dist/toolsets.js";
+import { KEYLESS_ONLY_TOOLS, TOOL_TOOLSET, TOOLSETS } from "../dist/toolsets.js";
 import { OutboxClient } from "../dist/services/client.js";
 import { MCP_APP_MIME, PAGE_VIEWER_HTML, PAGE_VIEWER_URI, PREVIEW_MAX_CHARS } from "../dist/apps/page-viewer.js";
 import { startHarness } from "./harness.mjs";
@@ -61,8 +61,9 @@ describe("registerOutboxTools (módulo reutilizable)", () => {
     const a = fakeHost();
     const { client } = fakeClient(() => null);
     const names = registerOutboxTools(a.host, client, { toolsets: new Set(["core", "comments"]) });
+    // Con credencial (el caso del remoto) las tools sin cuenta no se registran.
     const expected = Object.entries(TOOL_TOOLSET)
-      .filter(([, ts]) => ts === "core" || ts === "comments")
+      .filter(([n, ts]) => (ts === "core" || ts === "comments") && !KEYLESS_ONLY_TOOLS.has(n))
       .map(([n]) => n)
       .sort();
     assert.deepEqual([...names].sort(), expected);
@@ -70,6 +71,15 @@ describe("registerOutboxTools (módulo reutilizable)", () => {
     // Segundo registro (otro request/usuario en el remoto): mismo orden, host nuevo.
     const b = fakeHost();
     assert.deepEqual(registerOutboxTools(b.host, client, { toolsets: new Set(["core", "comments"]) }), names);
+  });
+
+  test("sin credencial se suman las tools sin cuenta (KEYLESS_ONLY_TOOLS)", () => {
+    const h = fakeHost();
+    const names = registerOutboxTools(h.host, new OutboxClient(null, { apiBase: "https://api.test" }), {
+      toolsets: new Set(["core"]),
+    });
+    for (const n of KEYLESS_ONLY_TOOLS) assert.ok(names.includes(n), n);
+    assert.ok(TOOL_TEXT_EN.outbox_publish_anonymous, "outbox_publish_anonymous necesita textos EN (el stdio arranca en inglés)");
   });
 
   test("`include` filtra por nombre (lo usa el remoto para los scopes del token)", () => {
