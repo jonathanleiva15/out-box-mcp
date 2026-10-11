@@ -188,6 +188,44 @@ export interface RegisterOutboxToolsOptions {
    * propio adaptador (out-box-mcp-remote/src/pull-chunks.ts) y lo partiría dos veces.
    */
   pullChunks?: boolean;
+  /**
+   * Versión de ESTE paquete npm. Si viene, outbox_me y outbox_capabilities suman
+   * `mcpUpdate` cuando /api/capabilities anuncia un `clients.mcp.latest` mayor. Solo el
+   * stdio: el remoto se deploya desde main y no tiene nada que actualizar del lado del usuario.
+   */
+  packageVersion?: string;
+}
+
+/** Compara dos versiones X.Y.Z (sin prerelease). >0 si a es mayor. NaN cuenta como 0. */
+export function cmpSemver(a: string, b: string): number {
+  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+/**
+ * `{ current, latest, install, notice }` si el back anuncia un @out-box/mcp más nuevo que
+ * `current`; si no (o si capabilities no responde), undefined. Nunca tira.
+ */
+export function mcpUpdateFrom(
+  caps: Record<string, unknown> | null,
+  current: string | undefined,
+): { current: string; latest: string; install: string; notice: string } | undefined {
+  if (!current || !caps) return undefined;
+  const mcp = (caps.clients as Record<string, unknown> | undefined)?.mcp as Record<string, unknown> | undefined;
+  const latest = typeof mcp?.latest === "string" && /^\d+\.\d+\.\d+$/.test(mcp.latest) ? mcp.latest : undefined;
+  if (!latest || cmpSemver(latest, current) <= 0) return undefined;
+  const install = "npx -y @out-box/mcp@latest";
+  return {
+    current,
+    latest,
+    install,
+    notice: `A newer Outbox MCP is available (${current} → ${latest}). Tell the user once: restart their MCP client; with \`${install}\` in its config it picks up the new version.`,
+  };
 }
 
 /** Label de la derivación de la clave del confirmToken (versionado: cambiarlo invalida tokens viejos). */
@@ -688,7 +726,9 @@ export function registerOutboxTools(
     },
     async () => {
       try {
-        return ok(await client.req("/api/me"));
+        const me = await client.req<Record<string, unknown>>("/api/me");
+        const mcpUpdate = opts.packageVersion ? mcpUpdateFrom(await client.getCapabilities(), opts.packageVersion) : undefined;
+        return ok(mcpUpdate && me && typeof me === "object" ? { ...me, mcpUpdate } : me);
       } catch (e) {
         return fail(e);
       }
@@ -2917,7 +2957,9 @@ export function registerOutboxTools(
     async () => {
       try {
         // Público: anda aunque el server haya arrancado sin credencial (AX-10).
-        return ok(await client.reqPublic("/api/capabilities"));
+        const caps = await client.reqPublic<Record<string, unknown>>("/api/capabilities");
+        const mcpUpdate = opts.packageVersion ? mcpUpdateFrom(caps, opts.packageVersion) : undefined;
+        return ok(mcpUpdate && caps && typeof caps === "object" ? { ...caps, mcpUpdate } : caps);
       } catch (e) {
         return fail(e);
       }

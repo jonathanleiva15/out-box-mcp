@@ -870,6 +870,9 @@ export function describeError(e: unknown): StructuredError {
       // (worker lib/limit-response.ts). Si viene, va tal cual (acotado); si no, el genérico.
       const backFix = typeof b?.fix === "string" && b.fix.trim() ? b.fix.trim().slice(0, 1000) : undefined;
       const link = cta.upgradeUrl ?? cta.ctaUrl;
+      // Marca para el remoto (errors-en.ts): este `fix` es el del back (en inglés) y se
+      // puede pasar tal cual; el genérico de abajo está en español y el remoto lo reescribe.
+      if (backFix) base.fixSource = "backend";
       base.fix =
         backFix ??
         (cta.error === "rate_limited"
@@ -877,6 +880,13 @@ export function describeError(e: unknown): StructuredError {
           : cta.upgradeTo && link
             ? `Límite del plan: el usuario puede subir a ${cta.upgradeTo} (${link}).`
             : "Límite del plan en el tier más alto: reducí el uso (borrar, compactar) o esperá el reset.");
+      return base;
+    }
+    if (code === "seat_limit") {
+      const contact = typeof b?.contact === "string" && /^[^\s@]+@out-box\.dev$/.test(b.contact) ? b.contact : "hello@out-box.dev";
+      if (typeof b?.limit === "number") base.limit = b.limit;
+      if (typeof b?.used === "number") base.used = b.used;
+      base.fix = `The company already has ${typeof b?.limit === "number" ? b.limit : 10} publishers (pending invites included). Do not retry: tell the user to remove someone or write to ${contact} for a bigger plan.`;
       return base;
     }
     if (code === "private_read_scope_required") {

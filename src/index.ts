@@ -104,6 +104,8 @@ registerOutboxTools(host, client, {
   lang: process.env.OUTBOX_LANG === "es" ? "es" : "en",
   // Ronda 4: offset/maxChars en outbox_pull (paridad con el remoto; opt-in por llamada).
   pullChunks: true,
+  // Aviso de versión nueva en outbox_me / outbox_capabilities (clients.mcp.latest).
+  packageVersion: SERVER_VERSION,
 });
 
 // ── Arranque (stdio) ───────────────────────────────────────────────────────────
