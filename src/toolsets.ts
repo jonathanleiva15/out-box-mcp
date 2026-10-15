@@ -136,6 +136,9 @@ export const TOOL_TOOLSET: Record<string, Toolset> = {
   // sandbox-platform (src/tools/sandbox-platform.ts): vigía de render y datos de página.
   outbox_render_status: "library",
   outbox_page_data: "library",
+  // Aprobación del cliente (src/tools/approvals.ts): leer aprobaciones y prender el botón.
+  outbox_approvals: "library",
+  outbox_set_approval: "library",
 };
 
 /**

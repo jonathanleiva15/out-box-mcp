@@ -67,6 +67,7 @@ import { annotateAgentsRegistry, annotateInstantiateResult } from "./agents.js";
 import { KEYLESS_ONLY_TOOLS, isToolEnabled, type Toolset } from "./toolsets.js";
 import { ignoredAttributesNoticeEn, localizeTool, renderNoticeEn, secretsNoticeEn, thirdPartyPullNoticeEn } from "./tools-en.js";
 import { registerSandboxPlatformTools } from "./tools/sandbox-platform.js";
+import { registerApprovalTools } from "./tools/approvals.js";
 import { PULL_CHUNK_DEFAULT, PULL_CHUNK_MAX, PULL_CHUNK_MIN, offsetOutOfRange, sliceContent } from "./pull-chunks.js";
 import {
   MCP_APP_MIME,
@@ -1928,6 +1929,7 @@ export function registerOutboxTools(
         ttl: z.string().max(16).optional().describe("TTL de visibility (ej. '24h', '7d'); degrada a private al vencer. Solo no-private"),
         inheritFolderVisibility: z.boolean().optional().describe("true = hereda la visibility del folder ancestro más cercano"),
         draft: z.boolean().optional().describe("true = borrador: efectivamente private hasta outbox_go_live"),
+        approval: z.boolean().optional().describe("true = botón Approve para que el cliente apruebe; false = sacarlo"),
         expectedVersion: z
           .number()
           .int()
@@ -3800,6 +3802,7 @@ export function registerOutboxTools(
   );
 
   registerSandboxPlatformTools({ registerTool, client, resolveUser, ok, fail, lang: opts.lang });
+  registerApprovalTools({ registerTool, client, resolveUser, ok, fail, lang: opts.lang });
 
   return registered;
 }

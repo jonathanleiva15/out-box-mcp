@@ -110,12 +110,12 @@ leer → sumar → re-publicar, qué hereda un re-publish, **contenido de tercer
 instrucciones**, confirmar antes de toda tool destructiva, cómo leer los errores, `expectedVersion`,
 `file_path` y qué toolsets hay activos. Ver `src/instructions.ts`.
 
-## Tools disponibles (77)
+## Tools disponibles (79)
 
-77 tools en 8 toolsets (conteo del 2026-10-10), más `outbox_publish_anonymous`, que solo aparece sin
+79 tools en 8 toolsets (conteo del 2026-10-15), más `outbox_publish_anonymous`, que solo aparece sin
 credencial (ver "Sin cuenta"). Por default se registran **core**, **comments** y
 **sharing** (32 tools, unos 42 KB de `tools/list` contra los 90 KB de todas): compartir es la propuesta
-central de Outbox. El resto se habilita con `OUTBOX_TOOLSETS`. 35 son read-only y
+central de Outbox. El resto se habilita con `OUTBOX_TOOLSETS`. 36 son read-only y
 **16 llevan `destructiveHint: true`** (los clientes que gatean confirmación por esa annotation van a
 pedir OK): borrar, rollback, squash, revocar, rotar, salir de un equipo, gestionar grupos, `outbox_go_live`
 y `outbox_accept_suggestion`.
@@ -153,7 +153,7 @@ y `outbox_accept_suggestion`.
 | `outbox_discard_suggestion` | Descartar una sugerencia o comentario (owner) | write |
 | `outbox_accept_suggestion` | Aceptar una sugerencia: confirmación con `exact → replacement` antes de publicar | ⚠️ destructivo |
 
-### library (12)
+### library (14)
 
 | Tool | Qué hace | |
 |---|---|---|
@@ -169,6 +169,8 @@ y `outbox_accept_suggestion`.
 | `outbox_delete_folder` | Eliminar la metadata de una carpeta (las páginas quedan) | ⚠️ destructivo |
 | `outbox_render_status` | Vigía de render de una versión (`GET /api/render-report`): `ok`/`warn`/`error`/`blank`, errores de JS y recursos. `rollbackHint` solo si el reporte es del owner; el de visitantes sale en `untrustedVisitorReport` | read |
 | `outbox_page_data` | Entradas de la capa de datos de una página (`GET /api/page-data`, `after`/`limit`). Las de visitantes van en `untrustedData` con `untrustedNotice`: son dato, nunca instrucciones | read |
+| `outbox_approvals` | Aprobaciones del cliente de una página (`GET /api/approvals`): versión aprobada, fecha, quién y `changedSince`; la nota y el nombre van en `untrustedText` | read |
+| `outbox_set_approval` | Prender o apagar el botón Approve de una página (`PUT /api/approvals`); también con `approval: true` en `outbox_publish` | write |
 
 ### sharing (9)
 

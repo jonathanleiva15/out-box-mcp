@@ -184,6 +184,7 @@ export const TOOL_TEXT_EN: Record<string, ToolTextEn> = {
       ttl: "Visibility TTL (e.g. '24h', '7d'); the page reverts to private when it expires. Non-private only",
       inheritFolderVisibility: "true = inherit the visibility of the closest folder",
       draft: "true = draft: effectively private until outbox_go_live",
+      approval: "true = show an Approve button for client sign-off; false = remove it",
       expectedVersion:
         "Version that was read: the `version` returned by outbox_pull (or outbox_export / outbox_versions, read BEFORE the content). If the page changed since, the publish fails with 409 version_conflict",
       notifySlack: "Slack channel to notify, e.g. '#team' (not a URL)",

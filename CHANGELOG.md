@@ -6,6 +6,7 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 
 ## [Unreleased]
 
+- **Aprobación del cliente** (requiere el worker con capabilities v15, `features.approval`): nuevas `outbox_approvals` (lee las aprobaciones y pedidos de cambios de una página: versión, fecha, quién, `changedSince`, `approvedCurrentVersion`; la nota y el nombre de quien aprobó van en `untrustedText`) y `outbox_set_approval` (prende o apaga el botón Approve, `PUT /api/approvals`). Toolset `library`. `outbox_publish` acepta `approval: boolean`.
 - `outbox_revoke_share` en inglés (el default) recupera la aclaración que tenía el español: requiere scope `admin:self` (key humana; una key de agente recibe 403), es destructiva e irreversible (confirmar con el usuario) e idempotente.
 - Las `instructions` del stdio siguen a `OUTBOX_LANG`: en inglés por default, como las tools (antes salían siempre en español). `buildInstructions` recibe `lang`; sin él sigue en español. `TOOLSET_SUMMARY_EN` en `src/toolsets.ts`.
 - Pendiente (más grande, fuera de este cambio): los `fix` de los errores de `src/services/client.ts` siguen en español y 48 tools no tienen texto en inglés.
