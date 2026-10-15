@@ -343,7 +343,7 @@ export const TOOL_TEXT_EN: Record<string, ToolTextEn> = {
   outbox_revoke_share: {
     title: "Outbox: revoke a share link",
     description:
-      "Revokes a share link by its token (DELETE /api/share/:token); the link stops working immediately and cannot be reactivated. Take the token from outbox_create_share or outbox_list_shares.",
+      "Revokes a share link by its token (DELETE /api/share/:token); the link stops working immediately and cannot be reactivated. Take the token from outbox_create_share or outbox_list_shares. DESTRUCTIVE and irreversible: confirm with the user before using it. Requires scope `admin:self` (a human key): an agent key gets 403, so if you only have an agent key tell the user to revoke the link at out-box.dev. Idempotent (revoking twice → 404 token_not_found).",
     params: { token: "Share token to revoke (32 hex characters)" },
   },
   outbox_unopened_links: {

@@ -53,9 +53,12 @@ const config = loadConfig();
 const client = new OutboxClient(config?.apiKey ?? null);
 
 const toolsets = parseToolsets(process.env.OUTBOX_TOOLSETS);
+// Mercado prioritario EE.UU. (mesa 2026-10-04): inglés por default; OUTBOX_LANG=es
+// vuelve a los textos en español (tools e instructions).
+const LANG: "es" | "en" = process.env.OUTBOX_LANG === "es" ? "es" : "en";
 const server = new McpServer(
   { name: SERVER_NAME, version: SERVER_VERSION },
-  { instructions: buildInstructions(toolsets.enabled, SITE_BASE, { keyless: config === null }) },
+  { instructions: buildInstructions(toolsets.enabled, SITE_BASE, { keyless: config === null, lang: LANG }) },
 );
 
 /** I/O local confinado a OUTBOX_FILES_DIR (src/files.ts), para los args `file_path`. */
@@ -101,7 +104,7 @@ registerOutboxTools(host, client, {
       : undefined,
   // Mercado prioritario EE.UU. (mesa 2026-10-04): inglés por default; OUTBOX_LANG=es
   // vuelve a los textos en español. Las tools sin texto en inglés quedan en español.
-  lang: process.env.OUTBOX_LANG === "es" ? "es" : "en",
+  lang: LANG,
   // Ronda 4: offset/maxChars en outbox_pull (paridad con el remoto; opt-in por llamada).
   pullChunks: true,
   // Aviso de versión nueva en outbox_me / outbox_capabilities (clients.mcp.latest).
