@@ -317,9 +317,11 @@ const EXPECTED_EVENTS = [
   // Empresas v3
   "page.first_viewed",
   "form.submitted",
+  // Aprobación del cliente
+  "page.approved",
 ];
 
-test("outbox_create_webhook acepta los 7 eventos del worker", async () => {
+test("outbox_create_webhook acepta los 8 eventos del worker", async () => {
   const { tools } = await client.listTools();
   const tool = tools.find((t) => t.name === "outbox_create_webhook");
   assert.deepEqual([...tool.inputSchema.properties.events.items.enum].sort(), [...EXPECTED_EVENTS].sort());
