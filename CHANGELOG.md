@@ -6,6 +6,10 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 
 ## [Unreleased]
 
+- `outbox_revoke_share` en inglés (el default) recupera la aclaración que tenía el español: requiere scope `admin:self` (key humana; una key de agente recibe 403), es destructiva e irreversible (confirmar con el usuario) e idempotente.
+- Las `instructions` del stdio siguen a `OUTBOX_LANG`: en inglés por default, como las tools (antes salían siempre en español). `buildInstructions` recibe `lang`; sin él sigue en español. `TOOLSET_SUMMARY_EN` en `src/toolsets.ts`.
+- Pendiente (más grande, fuera de este cambio): los `fix` de los errores de `src/services/client.ts` siguen en español y 48 tools no tienen texto en inglés.
+
 ## [0.4.0] — 2026-10-11
 
 - **Nueva `outbox_publish_anonymous`** (core): publica `html` o `markdown` sin cuenta (`POST /api/anon/publish`, sin Bearer; `title` y `model` opcionales). Se registra **solo cuando el server arranca sin credencial**; con key no aparece. Devuelve `url`, `expiresAt`, `ttlSeconds`, `claimUrl` y `message`, un texto para el humano con el link para guardarla en su cuenta antes de que venza (72 h). El `claimToken` no se devuelve suelto (viaja en el fragmento del `claimUrl`). Textos en inglés y español. Requiere el worker de drafts anónimos (tanda 1, todavía sin desplegar).

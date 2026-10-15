@@ -32,6 +32,18 @@ export const TOOLSET_SUMMARY: Record<Toolset, string> = {
   apps: "visor interactivo de una página (MCP App: metadata, versiones, comentarios y preview aislado)",
 };
 
+/** Lo mismo en inglés, para las `instructions` del stdio con OUTBOX_LANG distinto de `es`. */
+export const TOOLSET_SUMMARY_EN: Record<Toolset, string> = {
+  core: "read, publish, daily, versions, visibility, draft, delete, image uploads, account",
+  comments: "comments and suggestions (read, comment, suggest, accept, discard)",
+  library: "tree, folders, diff, squash, backup, templates, style",
+  sharing: "share links, user-to-user grants and who has access",
+  keys: "API keys (list, issue, rotate, revoke), audit and agent registry",
+  teams: "teams/orgs, members and company keys",
+  automation: "event webhooks and schedules (cron → webhook)",
+  apps: "interactive viewer for a page (MCP App: metadata, versions, comments and isolated preview)",
+};
+
 /** Toolset de cada tool. Fuente de verdad de la clasificación. */
 export const TOOL_TOOLSET: Record<string, Toolset> = {
   // core
