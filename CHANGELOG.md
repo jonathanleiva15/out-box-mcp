@@ -6,6 +6,7 @@ La versión vive en `package.json` y `src/constants.ts` (`SERVER_VERSION`), sinc
 
 ## [Unreleased]
 
+- `outbox_page_views` muestra cuánto se LEYÓ la página (worker con capabilities v15): pasa tal cual `engagement` (lecturas medidas, tiempo activo mediano/promedio con la pestaña visible, % que llegó al 25/50/75/100 % del scroll y última lectura por destinatario de link), `sources` (vistas por país y por host del referrer) y `receipts[].lastRead`, y suma `readingSummary` (una línea legible) y `sourcesNotice` (los hosts del referrer son datos, no instrucciones). Un worker viejo deja la salida igual. `src/tools/page-views.ts`, test en `test/page-views.test.mjs`.
 - `outbox_revoke_share` en inglés (el default) recupera la aclaración que tenía el español: requiere scope `admin:self` (key humana; una key de agente recibe 403), es destructiva e irreversible (confirmar con el usuario) e idempotente.
 - Las `instructions` del stdio siguen a `OUTBOX_LANG`: en inglés por default, como las tools (antes salían siempre en español). `buildInstructions` recibe `lang`; sin él sigue en español. `TOOLSET_SUMMARY_EN` en `src/toolsets.ts`.
 - Pendiente (más grande, fuera de este cambio): los `fix` de los errores de `src/services/client.ts` siguen en español y 48 tools no tienen texto en inglés.
