@@ -171,3 +171,24 @@ test("el mapeo de 429 solo aplica al publish sin cuenta", () => {
   assert.doesNotMatch(formatError(other), /sin cuenta/);
   assert.equal(describeError(other).retryAfter, 30);
 });
+
+test("anonPublishResult con state=pending: devuelve verifyUrl y el message lo pone primero (es/en)", () => {
+  const res = {
+    id: "AbCdEfGhIjKl",
+    url: "https://out-box.dev/p/AbCdEfGhIjKl",
+    state: "pending",
+    expiresAt: "2026-11-27T05:00:00.000Z",
+    ttlSeconds: 3600,
+    claimToken: "anc_" + "x".repeat(32),
+    claimUrl: "https://out-box.dev/claim/page#AbCdEfGhIjKl.anc_" + "x".repeat(32),
+    verifyUrl: "https://out-box.dev/p/AbCdEfGhIjKl/verify#anc_" + "x".repeat(32),
+  };
+  const es = anonPublishResult(res, "es");
+  assert.equal(es.state, "pending");
+  assert.equal(es.verifyUrl, res.verifyUrl);
+  assert.equal(es.claimToken, undefined);
+  assert.match(es.message, /^Publicada sin cuenta, falta un paso: .*antes del 2026-11-27 05:00 UTC.*\/verify#anc_/);
+  const en = anonPublishResult(res, "en");
+  assert.match(en.message, /^Published without an account, one step left: .*before 2026-11-27 05:00 UTC/);
+  assert.match(en.message, /live for 72 h at https:\/\/out-box\.dev\/p\/AbCdEfGhIjKl/);
+});

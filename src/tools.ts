@@ -364,15 +364,33 @@ export function anonPublishResult(res: Record<string, unknown>, lang?: "es" | "e
   const url = typeof pick("url") === "string" ? (pick("url") as string) : undefined;
   const claimUrl = typeof pick("claimUrl") === "string" ? (pick("claimUrl") as string) : undefined;
   const expiresAt = typeof pick("expiresAt") === "string" ? (pick("expiresAt") as string) : undefined;
+  const verifyUrl = typeof pick("verifyUrl") === "string" ? (pick("verifyUrl") as string) : undefined;
+  const pending = pick("state") === "pending" && verifyUrl !== undefined;
   const when = formatUtc(expiresAt);
   const out: Record<string, unknown> = {};
   if (typeof pick("id") === "string") out.id = pick("id");
   if (url) out.url = url;
+  if (pick("state") === "pending" || pick("state") === "live") out.state = pick("state");
   if (expiresAt) out.expiresAt = expiresAt;
   if (typeof pick("ttlSeconds") === "number") out.ttlSeconds = pick("ttlSeconds");
   if (claimUrl) out.claimUrl = claimUrl;
+  if (verifyUrl) out.verifyUrl = verifyUrl;
   const parts: string[] = [];
-  if (lang === "en") {
+  // Verificación humana (worker 2026-11-27): la página no se ve hasta que una persona
+  // abre verifyUrl y pasa Turnstile. Un agente no puede hacerlo: se lo pasa al humano.
+  if (pending && lang === "en") {
+    parts.push(
+      `Published without an account, one step left: open this link in a browser and pass a quick human check${when ? ` before ${when}` : " within 1 hour"}, or the page is deleted: ${verifyUrl}`,
+    );
+    if (url) parts.push(`After that it's live for 72 h at ${url}.`);
+    if (claimUrl) parts.push(`To keep it in your Outbox account: ${claimUrl}`);
+  } else if (pending) {
+    parts.push(
+      `Publicada sin cuenta, falta un paso: abrí este link en el navegador y pasá un control rápido${when ? ` antes del ${when}` : " dentro de 1 hora"}, si no se borra: ${verifyUrl}`,
+    );
+    if (url) parts.push(`Después queda visible 72 h en ${url}.`);
+    if (claimUrl) parts.push(`Para guardarla en tu cuenta: ${claimUrl}`);
+  } else if (lang === "en") {
     if (url) parts.push(`Published without an account: ${url} (anyone with the link can see it${when ? ` until ${when}` : ""}).`);
     if (claimUrl) parts.push(`Open this link to save it to your Outbox account${when ? ` before ${when}` : ""}: ${claimUrl}`);
   } else {
@@ -1222,6 +1240,7 @@ export function registerOutboxTools(
       description:
         "Publica una página SIN cuenta: solo existe cuando este server no tiene OUTBOX_API_KEY. Queda en un link que ve cualquiera que tenga la URL y vence a las 72 h; no entra en ninguna biblioteca. " +
         "Devuelve url, expiresAt, claimUrl y `message` para el humano: pasale el claimUrl (no el token suelto) para que la guarde en su cuenta antes de que venza. " +
+        "Si viene state='pending' con verifyUrl, la página NO se ve hasta que una persona abra verifyUrl y pase un control humano (Turnstile) dentro de 1 hora: mostrale el `message` con ese link a tu usuario (vos no podés resolverlo). " +
         "Nunca publiques así contenido con datos privados, personales o credenciales. " +
         "Límites: 2 por hora y 3 por día por IP (5 por día por red); 2 MiB de HTML o 256 KiB de markdown. Ante 429 esperá retryAfter, sin reintentar en loop.",
       inputSchema: {
